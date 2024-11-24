@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 17, 24, 39;
+  --accent-rgb: 59, 130, 246;
+  --gradient-start: #1a1f35;
+  --gradient-end: #111827;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(31, 41, 55);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(55, 65, 81);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(75, 85, 99);
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  min-height: 100vh;
+  background-attachment: fixed;
+  font-family: 'Poppins', sans-serif;
+  font-feature-settings: "ss01" on, "ss02" on, "cv01" on, "cv02" on;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold text-blue-400 tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600 leading-tight;
+  }
+
+  h2 {
+    @apply text-2xl mb-4;
+  }
+
+  input[type='number'],
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  select {
+    @apply block w-full rounded-xl bg-gray-800/80 border-gray-700/50 text-white
+    shadow-sm transition-all duration-200 backdrop-blur-sm
+    focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 px-4 py-3
+    hover:border-gray-600/50 font-medium;
+  }
+
+  input[type='number']:disabled,
+  input[type='text']:disabled,
+  select:disabled {
+    @apply bg-gray-900 text-gray-500 cursor-not-allowed;
+  }
+
+  button {
+    @apply rounded-xl px-4 py-3 font-semibold transition-all duration-200
+    focus:outline-none focus:ring-2 focus:ring-blue-500/20;
+  }
+
+  button[type='submit'] {
+    @apply bg-gradient-to-r from-blue-600 to-blue-700 text-white 
+    hover:from-blue-700 hover:to-blue-800 
+    active:from-blue-800 active:to-blue-900 
+    disabled:from-blue-800/50 disabled:to-blue-900/50
+    shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30;
+  }
+
+  select {
+    @apply appearance-none bg-no-repeat bg-[length:16px_16px] bg-[right_12px_center]
+    hover:cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='rgb(156, 163, 175)'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E");
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-gray-800/80 rounded-2xl shadow-xl border border-gray-700/50 backdrop-blur-sm
+    hover:shadow-blue-500/5 transition-all duration-300 p-8
+    hover:border-gray-600/50 hover:bg-gray-800/90;
+  }
+
+  .input-label {
+    @apply block text-sm font-medium text-gray-300 mb-2;
+  }
+
+  .error-message {
+    @apply text-sm font-medium text-red-400 mt-2;
+  }
+
+  .success-message {
+    @apply text-sm font-medium text-green-400 mt-2;
+  }
+
+  .glass-card {
+    @apply bg-gray-800/80 backdrop-blur-lg border border-gray-700/50 rounded-2xl
+    hover:bg-gray-800/90 hover:border-gray-600/50 transition-all duration-300
+    shadow-xl hover:shadow-2xl hover:shadow-blue-500/5;
+  }
+
+  /* Style inputs with units and prefixes */
+  .input-with-prefix {
+    @apply relative;
+  }
+
+  .input-with-prefix input {
+    @apply pl-10;
+  }
+
+  .input-with-prefix .prefix {
+    @apply absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 select-none pointer-events-none
+    font-medium;
+  }
+
+  .input-with-prefix input:focus + .prefix {
+    @apply text-blue-400;
+  }
+
+  /* Style number input spinners for dark theme */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    opacity: 1;
+    background: url("data:image/svg+xml,%3Csvg width='12' height='20' viewBox='0 0 12 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 0L11.1962 6H0.803848L6 0Z' fill='%233B82F6'/%3E%3Cpath d='M6 20L0.803848 14L11.1962 14L6 20Z' fill='%233B82F6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    cursor: pointer;
+  }
+
+  /* For Firefox */
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+/* Add animation classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
