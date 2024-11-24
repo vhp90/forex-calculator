@@ -24,10 +24,21 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+.env.*
 
 # vercel
 .vercel
 
 # typescript
-*.tsbuildinfoS
+*.tsbuildinfo
 next-env.d.ts
+
+# project specific
+.cascade
+prd.md
+.vscode
+.idea
+dist/
+build/
+*.log
