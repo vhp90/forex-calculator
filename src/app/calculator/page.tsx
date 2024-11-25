@@ -12,6 +12,7 @@ interface CalculationResults {
   pipValue: number
   displayUnit: 'units' | 'lots'
   leverage: string
+  accountCurrency: string
   riskAnalysis: {
     riskRating: 'Low' | 'Medium' | 'High' | 'Very High'
     riskScore: number
@@ -28,6 +29,7 @@ export default function CalculatorPage() {
     pipValue: 0,
     displayUnit: 'units',
     leverage: '0',
+    accountCurrency: 'USD',
     riskAnalysis: {
       riskRating: 'Low',
       riskScore: 0,
