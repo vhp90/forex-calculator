@@ -348,19 +348,22 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               Account Balance
             </label>
             <div className="relative flex gap-2">
-              <select
-                value={formState.accountCurrency}
-                onChange={(e) => setFormState(prev => ({ ...prev, accountCurrency: e.target.value }))}
-                className="w-20 sm:w-24 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-2 py-2.5 
-                  text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                  shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
-              >
-                {currencies.map(currency => (
-                  <option key={currency.value} value={currency.value}>
-                    {currency.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative w-20">
+                <select
+                  value={formState.accountCurrency}
+                  onChange={(e) => handleInputChange('accountCurrency', e.target.value)}
+                  className="w-full h-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-l-lg 
+                    text-xs text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
+                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
+                    px-2 py-2.5 appearance-none"
+                >
+                  {currencies.map(currency => (
+                    <option key={currency.value} value={currency.value} className="py-1">
+                      {currency.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="relative flex-1">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm pointer-events-none w-6 flex justify-center">
                   {getCurrencySymbol(formState.accountCurrency)}
@@ -368,14 +371,15 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                 <input
                   type="number"
                   id="accountBalance"
+                  name="accountBalance"
                   min="0"
                   step="1"
                   value={formState.accountBalance}
                   onChange={(e) => handleInputChange('accountBalance', e.target.value)}
-                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg pl-12 pr-4 py-2.5 
-                    text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
+                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-r-lg pl-12 pr-4 py-2.5 
+                    text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
                     shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
-                  placeholder={`Enter your account balance`}
+                  placeholder="Enter your account balance"
                 />
               </div>
             </div>
