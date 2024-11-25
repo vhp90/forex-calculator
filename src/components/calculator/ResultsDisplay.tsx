@@ -9,6 +9,7 @@ interface ResultsDisplayProps {
   pipValue: number
   displayUnit: 'units' | 'lots'
   leverage: string
+  accountCurrency: string
 }
 
 export default function ResultsDisplay({
@@ -17,7 +18,8 @@ export default function ResultsDisplay({
   requiredMargin,
   pipValue,
   displayUnit,
-  leverage
+  leverage,
+  accountCurrency
 }: ResultsDisplayProps) {
   useEffect(() => {
     const handleCalculationUpdate = () => {
@@ -30,12 +32,25 @@ export default function ResultsDisplay({
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: displayUnit === 'lots' ? 2 : 0,
+      maximumFractionDigits: displayUnit === 'lots' ? 2 : 0,
     }).format(num)
   }
 
-  const displayPositionSize = displayUnit === 'lots' ? positionSize / 100000 : positionSize
+  const getCurrencySymbol = (currency: string) => {
+    const symbols: { [key: string]: string } = {
+      'USD': '$',
+      'EUR': '€',
+      'GBP': '£',
+      'JPY': '¥',
+      'AUD': 'A$',
+      'CAD': 'C$',
+      'CHF': 'Fr'
+    }
+    return symbols[currency] || '$'
+  }
+
+  const currencySymbol = getCurrencySymbol(accountCurrency)
 
   return (
     <div className="relative p-6 glass-card rounded-xl overflow-hidden">
@@ -50,29 +65,23 @@ export default function ResultsDisplay({
         <div className="space-y-1 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
           <dt className="text-sm font-medium text-gray-400">Position Size</dt>
           <dd className="text-2xl font-bold text-white">
-            {formatNumber(displayPositionSize)} <span className="text-sm font-normal text-gray-400">{displayUnit}</span>
+            {formatNumber(positionSize)} {displayUnit}
           </dd>
         </div>
 
         <div className="space-y-1 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
           <dt className="text-sm font-medium text-gray-400">Potential Loss</dt>
-          <dd className="text-2xl font-bold text-red-400">
-            ${formatNumber(potentialLoss)}
-          </dd>
+          <dd className="text-2xl font-bold text-red-400">{currencySymbol}{formatNumber(potentialLoss)}</dd>
         </div>
 
         <div className="space-y-1 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
           <dt className="text-sm font-medium text-gray-400">Required Margin</dt>
-          <dd className="text-2xl font-bold text-green-400">
-            ${formatNumber(requiredMargin)}
-          </dd>
+          <dd className="text-2xl font-bold text-green-400">{currencySymbol}{formatNumber(requiredMargin)}</dd>
         </div>
 
         <div className="space-y-1 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
           <dt className="text-sm font-medium text-gray-400">Pip Value</dt>
-          <dd className="text-2xl font-bold text-purple-400">
-            ${formatNumber(pipValue)}
-          </dd>
+          <dd className="text-2xl font-bold text-purple-400">{currencySymbol}{formatNumber(pipValue)}</dd>
         </div>
       </dl>
       

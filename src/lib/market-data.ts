@@ -6,12 +6,15 @@ interface MarketData {
   rate: number
   spread: number
   volatility: number
-  pipValue: number
   dailyRange: {
     high: number
     low: number
   }
 }
+
+// Cache for market data
+const marketDataCache: { [key: string]: { data: MarketData; timestamp: number } } = {}
+const CACHE_DURATION = 60000 // 1 minute cache
 
 // Mock market data for testing
 const mockRates: { [key: string]: number } = {
@@ -26,93 +29,79 @@ const mockRates: { [key: string]: number } = {
 }
 
 export async function getMarketData(fromCurrency: string, toCurrency: string): Promise<MarketData> {
+  const cacheKey = `${fromCurrency}/${toCurrency}`
+  const now = Date.now()
+  
+  // Check cache first
+  if (marketDataCache[cacheKey] && now - marketDataCache[cacheKey].timestamp < CACHE_DURATION) {
+    return marketDataCache[cacheKey].data
+  }
+
   try {
-    const response = await fetch(
-      `${BASE_URL}?function=CURRENCY_EXCHANGE_RATE&from_currency=${fromCurrency}&to_currency=${toCurrency}&apikey=${API_KEY}`
-    )
-    const data = await response.json()
-    const rate = parseFloat(data['Realtime Currency Exchange Rate']['5. Exchange Rate'])
+    let rate: number
+    let dailyRange = { high: 0, low: 0 }
 
-    // Get daily range data
-    const timeSeriesResponse = await fetch(
-      `${BASE_URL}?function=FX_DAILY&from_symbol=${fromCurrency}&to_symbol=${toCurrency}&apikey=${API_KEY}`
-    )
-    const timeSeriesData = await timeSeriesResponse.json()
-    const latestDay = Object.keys(timeSeriesData['Time Series FX (Daily)'])[0]
-    const dailyData = timeSeriesData['Time Series FX (Daily)'][latestDay]
+    if (API_KEY === 'demo') {
+      // Use mock data in demo mode
+      rate = mockRates[cacheKey] || 1.0
+      dailyRange = {
+        high: rate * 1.002, // 0.2% above current rate
+        low: rate * 0.998,  // 0.2% below current rate
+      }
+    } else {
+      // Get real-time exchange rate
+      const response = await fetch(
+        `${BASE_URL}?function=CURRENCY_EXCHANGE_RATE&from_currency=${fromCurrency}&to_currency=${toCurrency}&apikey=${API_KEY}`
+      )
+      const data = await response.json()
+      rate = parseFloat(data['Realtime Currency Exchange Rate']['5. Exchange Rate'])
 
-    // Mock spread based on pair liquidity
-    const spread = `${fromCurrency}/${toCurrency}`.includes('JPY') ? 0.02 : 0.0002
+      // Get daily range data
+      const timeSeriesResponse = await fetch(
+        `${BASE_URL}?function=FX_DAILY&from_symbol=${fromCurrency}&to_symbol=${toCurrency}&apikey=${API_KEY}`
+      )
+      const timeSeriesData = await timeSeriesResponse.json()
+      const latestDay = Object.keys(timeSeriesData['Time Series FX (Daily)'])[0]
+      const dailyData = timeSeriesData['Time Series FX (Daily)'][latestDay]
+      
+      dailyRange = {
+        high: parseFloat(dailyData['2. high']),
+        low: parseFloat(dailyData['3. low'])
+      }
+    }
 
-    // Mock volatility (as a decimal, e.g., 0.001 = 0.1%)
-    const volatility = 0.001
+    // Calculate spread based on pair liquidity
+    const spread = cacheKey.includes('JPY') ? 0.02 : 0.0002
 
-    return {
+    // Calculate volatility based on daily range
+    const volatility = (dailyRange.high - dailyRange.low) / rate
+
+    const marketData: MarketData = {
       rate,
       spread,
       volatility,
-      pipValue: `${fromCurrency}/${toCurrency}`.includes('JPY') ? 0.01 : 0.0001,
-      dailyRange: {
-        high: parseFloat(dailyData['2. high']),
-        low: parseFloat(dailyData['3. low']),
-      },
+      dailyRange
     }
+
+    // Cache the result
+    marketDataCache[cacheKey] = {
+      data: marketData,
+      timestamp: now
+    }
+
+    return marketData
   } catch (error) {
     console.error('Error fetching market data:', error)
-    // Return simulated data if API fails
-    const pair = `${fromCurrency}/${toCurrency}`
-    let rate = mockRates[pair]
-
-    // Handle cross rates if direct rate is not available
-    if (!rate && mockRates[`${fromCurrency}/USD`] && mockRates[`USD/${toCurrency}`]) {
-      rate = mockRates[`${fromCurrency}/USD`] * mockRates[`USD/${toCurrency}`]
-    }
-
-    if (!rate) {
-      throw new Error(`No rate available for ${pair}`)
-    }
-
-    // Mock spread based on pair liquidity
-    const spread = pair.includes('JPY') ? 0.02 : 0.0002
-
-    // Mock volatility (as a decimal, e.g., 0.001 = 0.1%)
-    const volatility = 0.001
-
+    // Fallback to mock data on error
+    const mockRate = mockRates[cacheKey] || 1.0
     return {
-      rate,
-      spread,
-      volatility,
-      pipValue: pair.includes('JPY') ? 0.01 : 0.0001,
+      rate: mockRate,
+      spread: cacheKey.includes('JPY') ? 0.02 : 0.0002,
+      volatility: 0.001,
       dailyRange: {
-        high: rate * 1.002,
-        low: rate * 0.998,
-      },
+        high: mockRate * 1.002,
+        low: mockRate * 0.998
+      }
     }
   }
-}
-
-function calculateVolatility(timeSeriesData: any): number {
-  const returns: number[] = []
-  const prices = Object.values(timeSeriesData)
-    .slice(0, 20) // Last 20 days
-    .map((day: any) => parseFloat(day['4. close']))
-
-  for (let i = 1; i < prices.length; i++) {
-    returns.push(Math.log(prices[i] / prices[i - 1]))
-  }
-
-  const mean = returns.reduce((a, b) => a + b, 0) / returns.length
-  const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length
-  return Math.sqrt(variance) * Math.sqrt(252) // Annualized volatility
-}
-
-function getSimulatedRate(fromCurrency: string, toCurrency: string): number {
-  const rates: { [key: string]: number } = {
-    'EUR/USD': 1.0876,
-    'GBP/USD': 1.2634,
-    'USD/JPY': 148.12,
-    'USD/CHF': 0.8745,
-    'AUD/USD': 0.6589,
-  }
-  return rates[`${fromCurrency}/${toCurrency}`] || 1.0
 }
