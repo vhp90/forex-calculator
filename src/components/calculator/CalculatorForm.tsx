@@ -238,8 +238,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     return (positionSize * pipSize * marketData.rate)
   }, [])
 
-  const handleCalculate = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleCalculate = async (e?: FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
     setIsLoading(true)
     setError('')
 
@@ -316,13 +319,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
 
   const handleUnitToggle = (unit: 'units' | 'lots') => {
     setFormState(prev => ({ ...prev, displayUnit: unit }))
-    
-    const formEvent = {
-      preventDefault: () => {},
-      target: { value: unit }
-    } as FormEvent<HTMLFormElement>;
-    
-    handleCalculate(formEvent)
+    handleCalculate()
   }
 
   useEffect(() => {
@@ -341,7 +338,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (formState.accountBalance && formState.riskPercentage && formState.stopLoss) {
-        handleCalculate(new Event('input') as any);
+        handleCalculate();
       }
     }, 500); // 500ms delay
 
@@ -598,14 +595,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  const formEvent = { 
-                    preventDefault: () => {},
-                    target: { value: 'units' }
-                  } as FormEvent<HTMLFormElement>;
-                  handleUnitToggle('units')
-                  handleCalculate(formEvent)
-                }}
+                onClick={() => handleUnitToggle('units')}
                 className={`flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200
                   ${formState.displayUnit === 'units'
                     ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/30'
@@ -616,14 +606,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const formEvent = { 
-                    preventDefault: () => {},
-                    target: { value: 'lots' }
-                  } as FormEvent<HTMLFormElement>;
-                  handleUnitToggle('lots')
-                  handleCalculate(formEvent)
-                }}
+                onClick={() => handleUnitToggle('lots')}
                 className={`flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200
                   ${formState.displayUnit === 'lots'
                     ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/30'
