@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, FormEvent } from 'react'
 import { getMarketData } from '@/lib/market-data'
 import { analyzeRisk } from '@/lib/risk-analysis'
 import { getTradingSuggestions, TradingSuggestion } from '../../lib/trading-suggestions';
 import { TradingScenario } from '../../types/calculator';
+import { HiMinus, HiPlus } from 'react-icons/hi'
 
 interface CalculationResult {
   positionSize: number
@@ -123,7 +124,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   }
 
   const handleInputChange = (field: string, value: string) => {
-    let isValid = true
+    // Special handling for non-numeric fields
+    if (field === 'accountCurrency' || field === 'selectedPair' || field === 'leverage' || field === 'displayUnit') {
+      setFormState(prev => ({ ...prev, [field]: value }));
+      return;
+    }
     
     // Allow empty values
     if (value === '') {
@@ -137,6 +142,8 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     }
 
     const numValue = parseFloat(value)
+
+    let isValid = true
 
     switch (field) {
       case 'accountBalance':
@@ -231,7 +238,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     return (positionSize * pipSize * marketData.rate)
   }, [])
 
-  const handleCalculate = async (e: React.FormEvent) => {
+  const handleCalculate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
@@ -310,8 +317,12 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   const handleUnitToggle = (unit: 'units' | 'lots') => {
     setFormState(prev => ({ ...prev, displayUnit: unit }))
     
-    // Trigger a recalculation immediately when unit changes
-    handleCalculate(new Event('submit'))
+    const formEvent = {
+      preventDefault: () => {},
+      target: { value: unit }
+    } as FormEvent<HTMLFormElement>;
+    
+    handleCalculate(formEvent)
   }
 
   useEffect(() => {
@@ -355,7 +366,13 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                   className="w-full h-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-l-lg 
                     text-xs text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
                     shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
-                    px-2 py-2.5 appearance-none"
+                    px-2 py-2.5 pr-6 appearance-none cursor-pointer"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgb(156, 163, 175)' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 4px center',
+                    backgroundSize: '16px'
+                  }}
                 >
                   {currencies.map(currency => (
                     <option key={currency.value} value={currency.value} className="py-1">
@@ -376,11 +393,36 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                   step="1"
                   value={formState.accountBalance}
                   onChange={(e) => handleInputChange('accountBalance', e.target.value)}
-                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-r-lg pl-12 pr-4 py-2.5 
+                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-r-lg pl-12 pr-20 py-2.5 
                     text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
-                  placeholder="Enter your account balance"
+                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
+                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="Enter balance"
                 />
+                <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentValue = parseFloat(formState.accountBalance) || 0;
+                      handleInputChange('accountBalance', (currentValue + 1).toString());
+                    }}
+                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                  >
+                    <HiPlus className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentValue = parseFloat(formState.accountBalance) || 0;
+                      if (currentValue > 0) {
+                        handleInputChange('accountBalance', (currentValue - 1).toString());
+                      }
+                    }}
+                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                  >
+                    <HiMinus className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -400,12 +442,45 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                   step={formState.riskDisplayMode === 'percentage' ? "0.1" : "1"}
                   value={formState.riskDisplayMode === 'percentage' ? formState.riskPercentage : riskAmount}
                   onChange={(e) => handleRiskInputChange(e.target.value)}
-                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 pr-12 py-2.5 
+                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 pr-20 py-2.5 
                     text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
-                  placeholder={formState.riskDisplayMode === 'percentage' ? "Enter risk percentage" : "Enter risk amount"}
+                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
+                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder={formState.riskDisplayMode === 'percentage' ? "Enter %" : "Enter amount"}
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm pointer-events-none w-6 flex justify-center">
+                <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentValue = formState.riskDisplayMode === 'percentage' 
+                        ? parseFloat(formState.riskPercentage) || 0
+                        : parseFloat(riskAmount.toString()) || 0;
+                      const step = formState.riskDisplayMode === 'percentage' ? 0.1 : 1;
+                      const newValue = (currentValue + step).toFixed(formState.riskDisplayMode === 'percentage' ? 1 : 0);
+                      handleRiskInputChange(newValue);
+                    }}
+                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                  >
+                    <HiPlus className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentValue = formState.riskDisplayMode === 'percentage' 
+                        ? parseFloat(formState.riskPercentage) || 0
+                        : parseFloat(riskAmount.toString()) || 0;
+                      const step = formState.riskDisplayMode === 'percentage' ? 0.1 : 1;
+                      if (currentValue > 0) {
+                        const newValue = (currentValue - step).toFixed(formState.riskDisplayMode === 'percentage' ? 1 : 0);
+                        handleRiskInputChange(Math.max(0, parseFloat(newValue)).toString());
+                      }
+                    }}
+                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                  >
+                    <HiMinus className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm pointer-events-none">
                   {formState.riskDisplayMode === 'percentage' ? '%' : getCurrencySymbol(formState.accountCurrency)}
                 </div>
               </div>
@@ -432,18 +507,45 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
             <label htmlFor="stopLoss" className="block text-sm font-medium text-gray-200">
               Stop Loss (Pips)
             </label>
-            <input
-              type="number"
-              id="stopLoss"
-              min="0"
-              step="1"
-              value={formState.stopLoss}
-              onChange={(e) => handleInputChange('stopLoss', e.target.value)}
-              className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 py-2.5 
-                text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
-              placeholder="Enter stop loss in pips"
-            />
+            <div className="relative">
+              <input
+                type="number"
+                id="stopLoss"
+                min="0"
+                step="1"
+                value={formState.stopLoss}
+                onChange={(e) => handleInputChange('stopLoss', e.target.value)}
+                className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 pr-16 py-2.5 
+                  text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
+                  shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
+                  [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="Enter stop loss in pips"
+              />
+              <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentValue = parseFloat(formState.stopLoss) || 0;
+                    handleInputChange('stopLoss', (currentValue + 1).toString());
+                  }}
+                  className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                >
+                  <HiPlus className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentValue = parseFloat(formState.stopLoss) || 0;
+                    if (currentValue > 0) {
+                      handleInputChange('stopLoss', (currentValue - 1).toString());
+                    }
+                  }}
+                  className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                >
+                  <HiMinus className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Currency Pair Selection */}
@@ -496,7 +598,14 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => handleUnitToggle('units')}
+                onClick={() => {
+                  const formEvent = { 
+                    preventDefault: () => {},
+                    target: { value: 'units' }
+                  } as FormEvent<HTMLFormElement>;
+                  handleUnitToggle('units')
+                  handleCalculate(formEvent)
+                }}
                 className={`flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200
                   ${formState.displayUnit === 'units'
                     ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/30'
@@ -507,7 +616,14 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               </button>
               <button
                 type="button"
-                onClick={() => handleUnitToggle('lots')}
+                onClick={() => {
+                  const formEvent = { 
+                    preventDefault: () => {},
+                    target: { value: 'lots' }
+                  } as FormEvent<HTMLFormElement>;
+                  handleUnitToggle('lots')
+                  handleCalculate(formEvent)
+                }}
                 className={`flex-1 py-2 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200
                   ${formState.displayUnit === 'lots'
                     ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/30'

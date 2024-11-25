@@ -1,26 +1,19 @@
-'use client'
+import React from 'react';
 
 interface RiskAnalysisProps {
-  riskRating: 'Low' | 'Medium' | 'High' | 'Very High'
-  riskScore: number
-  suggestions: string[]
-  maxRecommendedLeverage: number
+  riskRating: 'Low' | 'Medium' | 'High' | 'Very High';
+  riskScore: number;
+  suggestions: string[];
+  maxRecommendedLeverage: number;
 }
 
-export default function RiskAnalysis({
+const RiskAnalysis: React.FC<RiskAnalysisProps> = ({
   riskRating,
   riskScore,
   suggestions,
-  maxRecommendedLeverage
-}: RiskAnalysisProps) {
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num)
-  }
-
-  const getRiskColor = (rating: 'Low' | 'Medium' | 'High' | 'Very High') => {
+  maxRecommendedLeverage,
+}) => {
+  const getRiskColor = (rating: string) => {
     switch (rating) {
       case 'Low':
         return 'text-green-400';
@@ -33,68 +26,102 @@ export default function RiskAnalysis({
       default:
         return 'text-gray-400';
     }
-  }
+  };
+
+  const getRiskBgColor = (rating: string) => {
+    switch (rating) {
+      case 'Low':
+        return 'bg-green-400/10 border-green-400/20';
+      case 'Medium':
+        return 'bg-yellow-400/10 border-yellow-400/20';
+      case 'High':
+        return 'bg-orange-400/10 border-orange-400/20';
+      case 'Very High':
+        return 'bg-red-400/10 border-red-400/20';
+      default:
+        return 'bg-gray-400/10 border-gray-400/20';
+    }
+  };
 
   return (
-    <div className="relative mt-6 sm:mt-8 p-4 sm:p-6 glass-card rounded-xl overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 pointer-events-none" />
+    <div className="relative p-6 glass-card rounded-xl overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-purple-500/5 pointer-events-none" />
       
-      <h2 className="relative text-xl sm:text-2xl font-bold text-purple-400 mb-4 sm:mb-6 flex items-center gap-2">
-        <span className="inline-block w-1.5 sm:w-2 h-6 sm:h-8 bg-purple-500 rounded-full" />
+      <h2 className="relative text-2xl font-bold text-pink-400 mb-6 flex items-center gap-2">
+        <span className="inline-block w-2 h-8 bg-pink-500 rounded-full" />
         Risk Analysis
       </h2>
 
-      <div className="relative grid grid-cols-1 gap-4 sm:gap-6">
-        <div className="space-y-1 p-3 sm:p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
-          <label className="text-sm font-medium text-gray-400">Risk Rating</label>
-          <p className={`text-xl sm:text-2xl font-bold break-words ${getRiskColor(riskRating)}`}>
-            {riskRating}
-          </p>
-          <div className="mt-2 w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
-            <div
-              className={`h-1.5 sm:h-2 rounded-full ${getRiskColor(riskRating)}`}
-              style={{ width: `${riskScore}%` }}
-            />
+      <div className="relative space-y-6">
+        {/* Risk Score Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+          <div className={`space-y-1 p-4 rounded-lg ${getRiskBgColor(riskRating)} hover:bg-gray-800/70 transition-colors`}>
+            <dt className="text-sm font-medium text-gray-400">Risk Rating</dt>
+            <dd className={`text-2xl font-bold ${getRiskColor(riskRating)}`}>
+              {riskRating}
+            </dd>
+          </div>
+
+          <div className="space-y-1 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
+            <dt className="text-sm font-medium text-gray-400">Risk Score</dt>
+            <dd className="text-2xl font-bold text-white truncate">
+              {riskScore === 0 ? "0/100" : Math.round(riskScore)}
+            </dd>
+            <div className="w-full bg-gray-700/30 rounded-full h-1.5 mt-2">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-500 ${getRiskColor(riskRating)}`}
+                style={{ width: `${Math.min(Math.round(riskScore), 100)}%`, opacity: 0.3 }}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="space-y-1 p-3 sm:p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
-          <label className="text-sm font-medium text-gray-400">Maximum Recommended Leverage</label>
-          <p className="text-xl sm:text-2xl font-bold text-white break-words">
-            {maxRecommendedLeverage}:1
-          </p>
-        </div>
+        {/* Recommendations */}
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
+            <span className="text-pink-400">📋</span>
+            Trading Recommendations
+          </h3>
+          <div className="grid grid-cols-1 gap-3">
+            {suggestions.map((suggestion, index) => {
+              // Select an icon based on the content of the suggestion
+              const getIcon = (text: string) => {
+                if (text.toLowerCase().includes('stop loss')) return '🛑';
+                if (text.toLowerCase().includes('profit')) return '💰';
+                if (text.toLowerCase().includes('risk')) return '⚠️';
+                if (text.toLowerCase().includes('leverage')) return '⚡';
+                if (text.toLowerCase().includes('position')) return '📊';
+                return '💡'; // default icon
+              };
 
-        {suggestions.length > 0 && (
-          <div className="space-y-1 p-3 sm:p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
-            <label className="text-sm font-medium text-gray-400">Suggestions</label>
-            <ul className="mt-2 space-y-2">
-              {suggestions.map((suggestion, index) => (
-                <li
+              return (
+                <div
                   key={index}
-                  className="flex items-start gap-2"
+                  className="p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors flex items-start gap-3 group"
                 >
-                  <span className="flex-shrink-0 h-4 sm:h-5 w-4 sm:w-5 text-purple-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
-                    </svg>
+                  <span className="text-lg group-hover:scale-110 transition-transform">
+                    {getIcon(suggestion)}
                   </span>
-                  <span className="text-xs sm:text-sm text-gray-400">{suggestion}</span>
-                </li>
-              ))}
-            </ul>
+                  <p className="text-sm text-gray-300 leading-relaxed">{suggestion}</p>
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+        </div>
 
-      <div className="relative mt-4 sm:mt-6 p-3 sm:p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-        <div className="flex items-start gap-2 sm:gap-3">
-          <span className="text-purple-400 text-lg sm:text-xl flex-shrink-0">⚠️</span>
-          <p className="text-xs sm:text-sm text-purple-300 break-words">
-            Consider adjusting your position size or stop loss if the risk level is too high.
-          </p>
+        {/* Max Leverage */}
+        <div className="p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
+          <div className="flex items-start gap-3">
+            <span className="text-pink-400 text-xl">⚡</span>
+            <div>
+              <dt className="text-sm font-medium text-gray-400">Max Recommended Leverage</dt>
+              <dd className="text-2xl font-bold text-white mt-1">{maxRecommendedLeverage}:1</dd>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default RiskAnalysis;
