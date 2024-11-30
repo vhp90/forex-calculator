@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { CachedExchangeRates } from '@/lib/api/types';
 
 interface UseExchangeRatesResult {
-  rates: { [key: string]: number } | null;
+  rates: { [key: string]: number };
   isLoading: boolean;
   error: Error | null;
   nextUpdate: Date | null;
@@ -11,7 +11,7 @@ interface UseExchangeRatesResult {
 }
 
 export function useExchangeRates(): UseExchangeRatesResult {
-  const [rates, setRates] = useState<{ [key: string]: number } | null>(null);
+  const [rates, setRates] = useState<{ [key: string]: number }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [nextUpdate, setNextUpdate] = useState<Date | null>(null);
@@ -24,7 +24,7 @@ export function useExchangeRates(): UseExchangeRatesResult {
         throw new Error('Failed to fetch exchange rates');
       }
       const data: CachedExchangeRates = await response.json();
-      setRates(data.rates);
+      setRates(data.rates || {});
       setNextUpdate(new Date(data.expiresAt));
       setError(null);
     } catch (err) {
@@ -49,7 +49,7 @@ export function useExchangeRates(): UseExchangeRatesResult {
   const timeUntilUpdate = nextUpdate ? nextUpdate.getTime() - Date.now() : null;
 
   return {
-    rates: rates || {},
+    rates,
     isLoading,
     error,
     nextUpdate,
