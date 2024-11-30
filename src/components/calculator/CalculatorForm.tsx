@@ -386,26 +386,26 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                   type="number"
                   id="accountBalance"
                   name="accountBalance"
-                  min="0"
-                  step="1"
                   value={formState.accountBalance}
                   onChange={(e) => handleInputChange('accountBalance', e.target.value)}
-                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-r-lg pl-12 pr-20 py-2.5 
-                    text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
-                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="Enter balance"
+                  className="w-full pl-8 pr-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-r-lg
+                    text-sm sm:text-base text-gray-200 placeholder-gray-500
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
+                    hover:bg-gray-800/90 transition-colors duration-200"
                 />
-                <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-2">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col -space-y-px">
                   <button
                     type="button"
                     onClick={() => {
                       const currentValue = parseFloat(formState.accountBalance) || 0;
                       handleInputChange('accountBalance', (currentValue + 1).toString());
                     }}
-                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                    className="px-1.5 py-1 rounded-t border-b border-gray-700/50 bg-gray-800/80 hover:bg-gray-700/80 text-gray-400 hover:text-white transition-colors"
                   >
-                    <HiPlus className="w-3 h-3" />
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 3L14 9L2 9L8 3Z" fill="currentColor"/>
+                    </svg>
                   </button>
                   <button
                     type="button"
@@ -415,9 +415,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                         handleInputChange('accountBalance', (currentValue - 1).toString());
                       }
                     }}
-                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                    className="px-1.5 py-1 rounded-b bg-gray-800/80 hover:bg-gray-700/80 text-gray-400 hover:text-white transition-colors"
                   >
-                    <HiMinus className="w-3 h-3" />
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 13L2 7L14 7L8 13Z" fill="currentColor"/>
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -439,13 +441,13 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                   step={formState.riskDisplayMode === 'percentage' ? "0.1" : "1"}
                   value={formState.riskDisplayMode === 'percentage' ? formState.riskPercentage : riskAmount}
                   onChange={(e) => handleRiskInputChange(e.target.value)}
-                  className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 pr-20 py-2.5 
-                    text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                    shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
-                    [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder={formState.riskDisplayMode === 'percentage' ? "Enter %" : "Enter amount"}
+                  placeholder={formState.riskDisplayMode === 'percentage' ? "Enter risk %" : "Enter risk amount"}
+                  className="w-full pl-3 pr-8 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
+                    text-sm sm:text-base text-gray-200 placeholder-gray-500
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
+                    hover:bg-gray-800/90 transition-colors duration-200"
                 />
-                <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-2">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col -space-y-px">
                   <button
                     type="button"
                     onClick={() => {
@@ -456,9 +458,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                       const newValue = (currentValue + step).toFixed(formState.riskDisplayMode === 'percentage' ? 1 : 0);
                       handleRiskInputChange(newValue);
                     }}
-                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                    className="px-1.5 py-1 rounded-t border-b border-gray-700/50 bg-gray-800/80 hover:bg-gray-700/80 text-gray-400 hover:text-white transition-colors"
                   >
-                    <HiPlus className="w-3 h-3" />
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 3L14 9L2 9L8 3Z" fill="currentColor"/>
+                    </svg>
                   </button>
                   <button
                     type="button"
@@ -472,9 +476,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                         handleRiskInputChange(Math.max(0, parseFloat(newValue)).toString());
                       }
                     }}
-                    className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                    className="px-1.5 py-1 rounded-b bg-gray-800/80 hover:bg-gray-700/80 text-gray-400 hover:text-white transition-colors"
                   >
-                    <HiMinus className="w-3 h-3" />
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 13L2 7L14 7L8 13Z" fill="currentColor"/>
+                    </svg>
                   </button>
                 </div>
                 <div className="absolute right-12 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm pointer-events-none">
@@ -512,22 +518,24 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                 step="1"
                 value={formState.stopLoss}
                 onChange={(e) => handleInputChange('stopLoss', e.target.value)}
-                className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 pr-16 py-2.5 
-                  text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                  shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
-                  [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 placeholder="Enter stop loss in pips"
+                className="w-full pl-3 pr-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
+                  text-sm sm:text-base text-gray-200 placeholder-gray-500
+                  focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
+                  hover:bg-gray-800/90 transition-colors duration-200"
               />
-              <div className="absolute right-0 inset-y-0 flex items-center gap-0.5 pr-2">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col -space-y-px">
                 <button
                   type="button"
                   onClick={() => {
                     const currentValue = parseFloat(formState.stopLoss) || 0;
                     handleInputChange('stopLoss', (currentValue + 1).toString());
                   }}
-                  className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                  className="px-1.5 py-1 rounded-t border-b border-gray-700/50 bg-gray-800/80 hover:bg-gray-700/80 text-gray-400 hover:text-white transition-colors"
                 >
-                  <HiPlus className="w-3 h-3" />
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 3L14 9L2 9L8 3Z" fill="currentColor"/>
+                  </svg>
                 </button>
                 <button
                   type="button"
@@ -537,9 +545,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                       handleInputChange('stopLoss', (currentValue - 1).toString());
                     }
                   }}
-                  className="text-gray-400 hover:text-white p-1 rounded transition-colors"
+                  className="px-1.5 py-1 rounded-b bg-gray-800/80 hover:bg-gray-700/80 text-gray-400 hover:text-white transition-colors"
                 >
-                  <HiMinus className="w-3 h-3" />
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 13L2 7L14 7L8 13Z" fill="currentColor"/>
+                  </svg>
                 </button>
               </div>
             </div>
@@ -554,9 +564,10 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               id="currencyPair"
               value={formState.selectedPair}
               onChange={(e) => setFormState(prev => ({ ...prev, selectedPair: e.target.value }))}
-              className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 py-2.5 
-                text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
+              className="w-full px-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
+                text-sm sm:text-base text-gray-200
+                focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
+                hover:bg-gray-800/90 transition-colors duration-200"
             >
               <option value="EUR/USD">EUR/USD</option>
               <option value="GBP/USD">GBP/USD</option>
@@ -575,9 +586,10 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               id="leverage"
               value={formState.leverage}
               onChange={(e) => setFormState(prev => ({ ...prev, leverage: e.target.value }))}
-              className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg px-4 py-2.5 
-                text-xs sm:text-sm text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
-                shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50"
+              className="w-full px-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
+                text-sm sm:text-base text-gray-200
+                focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
+                hover:bg-gray-800/90 transition-colors duration-200"
             >
               {leverageOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -676,9 +688,10 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
           type="submit"
           disabled={isLoading}
           className="w-full bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-200 py-2.5 sm:py-3 px-4 rounded-lg 
-            font-medium text-sm sm:text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-            backdrop-blur-sm border border-indigo-500/30 hover:border-indigo-400/30 shadow-lg shadow-indigo-900/10
-            transform hover:translate-y-[-2px] mt-8 hover:text-indigo-100"
+            font-medium text-sm sm:text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed
+            backdrop-blur-sm border border-indigo-500/30 hover:border-indigo-400/40 shadow-lg shadow-indigo-900/10
+            transform hover:-translate-y-0.5 active:translate-y-0 mt-8 hover:text-indigo-100
+            hover:shadow-indigo-900/20"
         >
           {isLoading ? 'Calculating...' : 'Calculate Position Size'}
         </button>
