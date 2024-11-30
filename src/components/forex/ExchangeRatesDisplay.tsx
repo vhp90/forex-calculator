@@ -2,7 +2,7 @@ import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { CURRENCY_PAIRS } from '@/lib/api/types';
 
 export default function ExchangeRatesDisplay() {
-  const { rates, isLoading, error, lastUpdated, nextUpdate } = useExchangeRates();
+  const { rates, isLoading, error, nextUpdate } = useExchangeRates();
 
   if (isLoading) {
     return (
@@ -21,7 +21,7 @@ export default function ExchangeRatesDisplay() {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
         <p className="text-red-600 font-medium">Error loading rates:</p>
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-500">{error.message}</p>
       </div>
     );
   }
@@ -39,11 +39,6 @@ export default function ExchangeRatesDisplay() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center text-sm text-gray-500">
-        {lastUpdated && (
-          <div>
-            Last updated: {lastUpdated.toLocaleString()}
-          </div>
-        )}
         {nextUpdate && (
           <div>
             Next update: {nextUpdate.toLocaleString()}
@@ -51,20 +46,23 @@ export default function ExchangeRatesDisplay() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {CURRENCY_PAIRS.map(pair => {
-          const rate = rates[pair];
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {CURRENCY_PAIRS.map(({ from, to }) => {
+          const rate = rates[to];
+          if (!rate) return null;
+
           return (
             <div
-              key={pair}
+              key={`${from}-${to}`}
               className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
             >
-              <div className="text-sm font-medium text-gray-500">{pair}</div>
-              <div className="text-lg font-semibold text-gray-900">
-                {typeof rate === 'number' 
-                  ? rate.toFixed(6)
-                  : <span className="text-red-500">N/A</span>
-                }
+              <div className="flex justify-between items-center">
+                <div className="text-lg font-semibold">
+                  {from}/{to}
+                </div>
+                <div className="text-xl font-bold text-blue-600">
+                  {rate.toFixed(4)}
+                </div>
               </div>
             </div>
           );

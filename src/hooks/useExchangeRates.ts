@@ -3,7 +3,7 @@ import { CachedExchangeRates } from '@/lib/api/types';
 
 interface UseExchangeRatesResult {
   rates: { [key: string]: number } | null;
-  loading: boolean;
+  isLoading: boolean;
   error: Error | null;
   nextUpdate: Date | null;
   timeUntilUpdate: number | null;
@@ -12,13 +12,13 @@ interface UseExchangeRatesResult {
 
 export function useExchangeRates(): UseExchangeRatesResult {
   const [rates, setRates] = useState<{ [key: string]: number } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [nextUpdate, setNextUpdate] = useState<Date | null>(null);
 
   async function fetchRates() {
     try {
-      setLoading(true);
+      setIsLoading(true);
       const response = await fetch('/api/exchange-rates');
       if (!response.ok) {
         throw new Error('Failed to fetch exchange rates');
@@ -30,7 +30,7 @@ export function useExchangeRates(): UseExchangeRatesResult {
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Unknown error'));
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }
 
@@ -49,8 +49,8 @@ export function useExchangeRates(): UseExchangeRatesResult {
   const timeUntilUpdate = nextUpdate ? nextUpdate.getTime() - Date.now() : null;
 
   return {
-    rates,
-    loading,
+    rates: rates || {},
+    isLoading,
     error,
     nextUpdate,
     timeUntilUpdate,
