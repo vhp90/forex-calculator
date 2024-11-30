@@ -2,18 +2,11 @@ services:
   - type: web
     name: forex-calculator
     env: node
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
+    buildCommand: npm install && npm run render-build
+    startCommand: npm run render-start
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: EXCHANGE_RATE_API_KEY
         sync: false
-      - key: NEXT_PUBLIC_APP_URL
-        sync: false
-    autoDeploy: true
-    healthCheckPath: /api/uptime
-    disk:
-      name: tmp
-      mountPath: /tmp
-      sizeGB: 1
