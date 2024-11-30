@@ -57,15 +57,15 @@ const RiskAnalysis: React.FC<RiskAnalysisProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           <div className={`space-y-1 p-4 rounded-lg ${getRiskBgColor(riskRating)} hover:bg-gray-800/70 transition-colors`}>
             <dt className="text-sm font-medium text-gray-400">Risk Rating</dt>
-            <dd className={`text-2xl font-bold ${getRiskColor(riskRating)}`}>
+            <dd className={`text-xl font-bold ${getRiskColor(riskRating)}`}>
               {riskRating}
             </dd>
           </div>
 
           <div className="space-y-1 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
             <dt className="text-sm font-medium text-gray-400">Risk Score</dt>
-            <dd className="text-2xl font-bold text-white truncate">
-              {riskScore === 0 ? "0/100" : Math.round(riskScore)}
+            <dd className="text-2xl font-bold text-white">
+              {!riskScore ? "0/100" : Math.round(riskScore)}
             </dd>
             <div className="w-full bg-gray-700/30 rounded-full h-1.5 mt-2">
               <div

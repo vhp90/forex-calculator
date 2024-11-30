@@ -6,6 +6,7 @@ import { analyzeRisk } from '@/lib/risk-analysis'
 import { getTradingSuggestions, TradingSuggestion } from '../../lib/trading-suggestions';
 import { TradingScenario } from '../../types/calculator';
 import { HiMinus, HiPlus } from 'react-icons/hi'
+import { CURRENCY_PAIRS } from '@/lib/api/types';
 
 interface CalculationResult {
   positionSize: number
@@ -60,7 +61,8 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     displayUnit: 'units' as 'units' | 'lots',
     leverage: '0',
     accountCurrency: 'USD',
-    riskDisplayMode: 'percentage' as 'percentage' | 'money'
+    riskDisplayMode: 'percentage' as 'percentage' | 'money',
+    takeProfit: ''
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -86,7 +88,14 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     { value: 'AUD', label: 'AUD ($)', symbol: 'A$' },
     { value: 'CAD', label: 'CAD ($)', symbol: 'C$' },
     { value: 'CHF', label: 'CHF (Fr)', symbol: 'Fr' },
+    { value: 'NZD', label: 'NZD ($)', symbol: 'NZ$' }
   ]
+
+  // Create currency pair options from the CURRENCY_PAIRS constant
+  const currencyPairOptions = CURRENCY_PAIRS.map(pair => ({
+    value: pair,
+    label: pair
+  }));
 
   const getCurrencySymbol = (currency: string) => {
     return currencies.find(c => c.value === currency)?.symbol || '$'
@@ -225,97 +234,83 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     setFormState(prev => ({ ...prev, riskDisplayMode: newMode }))
   }
 
-  const calculatePipValue = useCallback((lotSize: number, marketData: any, base: string, quote: string) => {
-    const standardLotSize = 100000
-    const positionSize = lotSize * standardLotSize
-    const pipSize = quote === 'JPY' ? 0.01 : 0.0001
-
-    if (quote === 'USD') {
-      return positionSize * pipSize
-    } else if (base === 'USD') {
-      return (positionSize * pipSize) / marketData.rate
-    }
-    return (positionSize * pipSize * marketData.rate)
-  }, [])
-
-  const handleCalculate = async (e?: FormEvent<HTMLFormElement>) => {
-    if (e) {
-      e.preventDefault();
-    }
+  const handleCalculate = async (e?: FormEvent) => {
+    e?.preventDefault();
     
-    setIsLoading(true)
-    setError('')
-
     if (!validateInputs()) {
-      setIsLoading(false)
-      return
+      return;
     }
+
+    setIsLoading(true);
+    setError('');
 
     try {
-      const [base, quote] = formState.selectedPair.split('/')
-      const marketData = await getMarketData(base, quote)
-      
-      // Convert inputs to numbers
-      const balance = parseFloat(formState.accountBalance)
-      const risk = parseFloat(formState.riskPercentage)
-      const stopLossPips = parseFloat(formState.stopLoss)
-      const leverageValue = parseFloat(formState.leverage)
+      const balance = parseFloat(formState.accountBalance);
+      const risk = parseFloat(formState.riskPercentage);
+      const stopLossPips = parseFloat(formState.stopLoss);
+      const leverageValue = parseFloat(formState.leverage);
 
       // Calculate risk amount in account currency
-      const riskAmount = balance * (risk / 100)
+      const riskAmount = balance * (risk / 100);
+      setRiskAmount(riskAmount);
 
-      // First, calculate pip value for 1 standard lot
-      const standardLotPipValue = calculatePipValue(1, marketData, base, quote)
+      // Get market data
+      const marketData = await getMarketData(formState.selectedPair);
+      if (!marketData) {
+        throw new Error('Failed to fetch market data');
+      }
 
-      // Calculate required position size in lots
-      const positionSizeInLots = riskAmount / (stopLossPips * standardLotPipValue)
+      // Standard lot size and pip calculations
+      const standardLotSize = 100000;
+      const pipSize = formState.selectedPair.includes('JPY') ? 0.01 : 0.0001;
+      
+      // Calculate pip value (always in standard units first)
+      const pipValue = pipSize * standardLotSize * marketData.rate;
+      
+      // Calculate position size in standard units
+      const positionSizeInUnits = Math.round(riskAmount / (stopLossPips * pipValue * pipSize));
+      
+      // Convert to lots if needed (1 lot = 100,000 units)
+      const positionSizeInLots = positionSizeInUnits / standardLotSize;
 
-      // Calculate actual pip value for the position
-      const actualPipValue = calculatePipValue(positionSizeInLots, marketData, base, quote)
+      // Calculate required margin based on standard units
+      const requiredMargin = leverageValue > 0 
+        ? (positionSizeInUnits * marketData.rate) / leverageValue 
+        : positionSizeInUnits * marketData.rate;
 
-      // Calculate position size in units (1 lot = 100,000 units)
-      const positionSizeInUnits = positionSizeInLots * 100000
-
-      // Calculate required margin
-      const positionValue = positionSizeInUnits * marketData.rate
-      const requiredMargin = leverageValue === 0 
-        ? positionValue 
-        : positionValue / leverageValue
-
-      // Perform risk analysis
+      // Analyze risk
       const riskAnalysis = analyzeRisk(
         balance,
         risk,
         stopLossPips,
         leverageValue,
         marketData.volatility
-      )
+      );
 
-      // Prepare final position size based on display unit
+      // Use the appropriate position size based on display unit
       const finalPositionSize = formState.displayUnit === 'lots'
-        ? positionSizeInLots
-        : positionSizeInUnits
+        ? Math.round(positionSizeInLots * 100) / 100  // Round to 2 decimal places for lots
+        : Math.round(positionSizeInUnits);  // Round to whole numbers for units
 
-      // Prepare results with proper rounding
       const results = {
         positionSize: finalPositionSize,
         potentialLoss: Math.round(riskAmount * 100) / 100,
         requiredMargin: Math.round(requiredMargin * 100) / 100,
-        pipValue: Math.round(actualPipValue * 100) / 100,
+        pipValue: Math.round(pipValue * 100000) / 100000,
         displayUnit: formState.displayUnit,
         leverage: formState.leverage,
         riskAnalysis,
         accountCurrency: formState.accountCurrency
-      }
+      };
 
-      onCalculationComplete(results)
+      onCalculationComplete(results);
     } catch (error) {
-      console.error('Calculation error:', error)
-      setError('Failed to calculate position size. Please try again.')
+      console.error('Calculation error:', error);
+      setError('Unable to calculate position size. Please check your inputs and try again.');
     }
 
-    setIsLoading(false)
-  }
+    setIsLoading(false);
+  };
 
   const handleUnitToggle = (unit: 'units' | 'lots') => {
     setFormState(prev => ({ ...prev, displayUnit: unit }))
@@ -323,16 +318,24 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   }
 
   useEffect(() => {
-    const scenario: TradingScenario = {
-      accountBalance: parseFloat(formState.accountBalance) || 0,
-      accountCurrency: formState.accountCurrency,
-      riskAmount: riskAmount,
-      positionSize: 0,
-      stopLoss: parseFloat(formState.stopLoss) || 0,
-      takeProfit: 0,
-    };
-    
-    setSuggestions(getTradingSuggestions(scenario));
+    try {
+      const scenario: TradingScenario = {
+        accountBalance: parseFloat(formState.accountBalance) || 0,
+        accountCurrency: formState.accountCurrency,
+        riskAmount: riskAmount,
+        positionSize: 0,
+        stopLoss: parseFloat(formState.stopLoss) || 0,
+        takeProfit: parseFloat(formState.takeProfit) || 0,
+      };
+      
+      setSuggestions(getTradingSuggestions(scenario));
+    } catch (error) {
+      console.error('Error getting trading suggestions:', error);
+      setSuggestions([{
+        message: 'Unable to generate trading suggestions. Please check your input values.',
+        type: 'warning'
+      }]);
+    }
   }, [formState, riskAmount]);
 
   useEffect(() => {
@@ -557,11 +560,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
 
           {/* Currency Pair Selection */}
           <div className="space-y-2">
-            <label htmlFor="currencyPair" className="block text-sm font-medium text-gray-200">
+            <label htmlFor="selectedPair" className="block text-sm font-medium text-gray-200">
               Currency Pair
             </label>
             <select
-              id="currencyPair"
+              id="selectedPair"
               value={formState.selectedPair}
               onChange={(e) => setFormState(prev => ({ ...prev, selectedPair: e.target.value }))}
               className="w-full px-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
@@ -569,11 +572,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
                 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
                 hover:bg-gray-800/90 transition-colors duration-200"
             >
-              <option value="EUR/USD">EUR/USD</option>
-              <option value="GBP/USD">GBP/USD</option>
-              <option value="USD/JPY">USD/JPY</option>
-              <option value="USD/CHF">USD/CHF</option>
-              <option value="AUD/USD">AUD/USD</option>
+              {currencyPairOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
 
