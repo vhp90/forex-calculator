@@ -22,22 +22,24 @@ export const SUPPORTED_CURRENCIES = [
 
 export type Currency = typeof SUPPORTED_CURRENCIES[number];
 
-// Generate all possible currency pairs
-export const CURRENCY_PAIRS = SUPPORTED_CURRENCIES.flatMap(
-  (base) => SUPPORTED_CURRENCIES
-    .filter(quote => base !== quote)
-    .map(quote => `${base}/${quote}`)
-);
-
-export type CurrencyPair = typeof CURRENCY_PAIRS[number];
-
-// Type guard to check if a string is a valid currency pair
-export function isCurrencyPair(pair: string): pair is CurrencyPair {
-  return CURRENCY_PAIRS.includes(pair as CurrencyPair);
+export interface CurrencyPairType {
+  from: Currency;
+  to: Currency;
 }
 
-// Helper function to split currency pair
-export function splitCurrencyPair(pair: CurrencyPair): [Currency, Currency] {
-  const [base, quote] = pair.split('/') as [Currency, Currency];
-  return [base, quote];
+// Generate all possible currency pairs
+export const CURRENCY_PAIRS: CurrencyPairType[] = SUPPORTED_CURRENCIES.flatMap(
+  (from) => SUPPORTED_CURRENCIES
+    .filter(to => from !== to)
+    .map(to => ({ from, to }))
+);
+
+// Type guard to check if a string is a valid currency
+export function isCurrency(currency: string): currency is Currency {
+  return SUPPORTED_CURRENCIES.includes(currency as Currency);
+}
+
+// Helper function to validate currency pair
+export function isValidCurrencyPair(from: string, to: string): boolean {
+  return isCurrency(from) && isCurrency(to) && from !== to;
 }

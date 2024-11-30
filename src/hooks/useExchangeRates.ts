@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { CachedExchangeRates } from '@/lib/api/types';
+import { CachedExchangeRates, Currency } from '@/lib/api/types';
+import { FALLBACK_RATES } from '@/lib/api/exchange-rates';
 
 interface UseExchangeRatesResult {
-  rates: { [key: string]: number };
+  rates: Record<Currency, number>;
   isLoading: boolean;
   error: Error | null;
   nextUpdate: Date | null;
   timeUntilUpdate: number | null;
-  refresh: () => void;
+  refresh: () => Promise<void>;
 }
 
 export function useExchangeRates(): UseExchangeRatesResult {
-  const [rates, setRates] = useState<{ [key: string]: number }>({});
+  const [rates, setRates] = useState<Record<Currency, number>>(FALLBACK_RATES);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [nextUpdate, setNextUpdate] = useState<Date | null>(null);
@@ -24,11 +25,12 @@ export function useExchangeRates(): UseExchangeRatesResult {
         throw new Error('Failed to fetch exchange rates');
       }
       const data: CachedExchangeRates = await response.json();
-      setRates(data.rates || {});
+      setRates(data.rates as Record<Currency, number>);
       setNextUpdate(new Date(data.expiresAt));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Unknown error'));
+      // Keep the previous rates on error
     } finally {
       setIsLoading(false);
     }
