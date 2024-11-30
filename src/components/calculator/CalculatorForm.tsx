@@ -6,7 +6,12 @@ import { analyzeRisk } from '@/lib/risk-analysis'
 import { getTradingSuggestions, TradingSuggestion } from '../../lib/trading-suggestions';
 import { TradingScenario } from '../../types/calculator';
 import { HiMinus, HiPlus } from 'react-icons/hi'
-import { CURRENCY_PAIRS } from '@/lib/api/types';
+import { CURRENCY_PAIRS, Currency } from '@/lib/api/types';
+
+interface CurrencyPairOption {
+  value: string;
+  label: string;
+}
 
 interface CalculationResult {
   positionSize: number
@@ -91,10 +96,9 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     { value: 'NZD', label: 'NZD ($)', symbol: 'NZ$' }
   ]
 
-  // Create currency pair options from the CURRENCY_PAIRS constant
-  const currencyPairOptions = CURRENCY_PAIRS.map(pair => ({
-    value: pair,
-    label: pair
+  const currencyPairOptions: CurrencyPairOption[] = CURRENCY_PAIRS.map(pair => ({
+    value: `${pair.from}/${pair.to}`,
+    label: `${pair.from}/${pair.to}`
   }));
 
   const getCurrencySymbol = (currency: string) => {
@@ -563,21 +567,23 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
             <label htmlFor="selectedPair" className="block text-sm font-medium text-gray-200">
               Currency Pair
             </label>
-            <select
-              id="selectedPair"
-              value={formState.selectedPair}
-              onChange={(e) => setFormState(prev => ({ ...prev, selectedPair: e.target.value }))}
-              className="w-full px-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
-                text-sm sm:text-base text-gray-200
-                focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
-                hover:bg-gray-800/90 transition-colors duration-200"
-            >
-              {currencyPairOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="selectedPair"
+                value={formState.selectedPair}
+                onChange={(e) => handleInputChange('selectedPair', e.target.value)}
+                className="w-full px-4 py-2.5 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg
+                  text-sm sm:text-base text-gray-200
+                  focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/20
+                  hover:bg-gray-800/90 transition-colors duration-200"
+              >
+                {currencyPairOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Leverage Selection */}
