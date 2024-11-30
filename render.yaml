@@ -10,3 +10,7 @@ services:
         value: production
       - key: EXCHANGE_RATE_API_KEY
         sync: false
+      - key: RENDER_EXTERNAL_URL
+        sync: false
+      - key: PORT
+        value: "10000"

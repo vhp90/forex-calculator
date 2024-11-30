@@ -1,5 +1,6 @@
 // Script to keep the serverless functions warm
 const https = require('https');
+const http = require('http');
 
 // Configuration
 const PING_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -9,19 +10,13 @@ const ENDPOINTS = [
 ];
 
 // Your production URL (update this)
-const PRODUCTION_URL = process.env.NEXT_PUBLIC_APP_URL || 'your-production-url.vercel.app';
+const APP_URL = process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
 
 function pingEndpoint(endpoint) {
-  const options = {
-    hostname: PRODUCTION_URL.replace('https://', ''),
-    path: endpoint,
-    method: 'GET',
-    headers: {
-      'User-Agent': 'Warmup-Script'
-    }
-  };
+  const url = new URL(endpoint, APP_URL);
+  const client = url.protocol === 'https:' ? https : http;
 
-  const req = https.request(options, (res) => {
+  const req = client.get(url.toString(), (res) => {
     console.log(`[${new Date().toISOString()}] Pinged ${endpoint} - Status: ${res.statusCode}`);
   });
 

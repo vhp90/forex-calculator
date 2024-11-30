@@ -1,4 +1,15 @@
-// @ts-nocheck
+interface ExchangeRates {
+  conversion_rates?: Record<string, number>;
+  result?: string;
+  'error-type'?: string;
+}
+
+interface CacheResult {
+  success: boolean;
+  timestamp: number;
+  rates: Record<string, number>;
+}
+
 // Exchange Rate API integration
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
@@ -6,7 +17,7 @@ const RETRY_DELAY = 1000; // 1 second
 const API_KEY = process.env.EXCHANGE_RATE_API_KEY;
 const BASE_CURRENCY = 'USD';
 
-export const FALLBACK_RATES = {
+export const FALLBACK_RATES: Record<string, number> = {
   'EUR': 0.92,
   'GBP': 0.79,
   'JPY': 149.50,
@@ -21,11 +32,11 @@ export const FALLBACK_RATES = {
 let lastFetchTime = 0;
 const CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
 
-async function delay(ms) {
+async function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function fetchExchangeRates(retryCount = 0) {
+export async function fetchExchangeRates(retryCount = 0): Promise<ExchangeRates> {
   if (!API_KEY) {
     throw new Error('Exchange rate API key not configured');
   }
@@ -34,7 +45,8 @@ export async function fetchExchangeRates(retryCount = 0) {
   const now = Date.now();
   if (now - lastFetchTime < CACHE_DURATION) {
     // Return from Next.js cache if within cache duration
-    return fetch('/api/exchange-rates').then(res => res.json());
+    const response = await fetch('/api/exchange-rates');
+    return response.json();
   }
 
   try {
@@ -66,14 +78,30 @@ export async function fetchExchangeRates(retryCount = 0) {
   }
 }
 
+// Function to update rates cache
+export async function updateRatesCache(): Promise<CacheResult> {
+  try {
+    const data = await fetchExchangeRates();
+    lastFetchTime = Date.now();
+    return {
+      success: true,
+      timestamp: lastFetchTime,
+      rates: data.conversion_rates || FALLBACK_RATES
+    };
+  } catch (error) {
+    console.error('Error updating rates cache:', error);
+    throw error;
+  }
+}
+
 // Function to start background refresh
-export function startBackgroundRefresh() {
+export function startBackgroundRefresh(): void {
   // Initial fetch
-  fetchExchangeRates().catch(console.error);
+  updateRatesCache().catch(console.error);
 
   // Set up periodic refresh
   setInterval(() => {
-    fetchExchangeRates().catch(console.error);
+    updateRatesCache().catch(console.error);
   }, CACHE_DURATION);
 }
 

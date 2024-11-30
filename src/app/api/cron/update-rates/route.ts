@@ -6,12 +6,25 @@ export const dynamic = 'force-dynamic';
 
 const CRON_SECRET = process.env.CRON_SECRET_KEY;
 
-export async function GET(request: Request) {
+interface UpdateResponse {
+  success: boolean;
+  timestamp?: number;
+  message?: string;
+  error?: string;
+}
+
+export async function GET(request: Request): Promise<NextResponse<UpdateResponse>> {
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${CRON_SECRET}`) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Unauthorized' 
+        },
+        { status: 401 }
+      );
     }
 
     // Update rates cache
