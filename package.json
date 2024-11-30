@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/health-check.js & next start",
     "lint": "next lint",
-    "fetch-rates": "node scripts/fetch-rates.js"
+    "fetch-rates": "node scripts/fetch-rates.js",
+    "warmup": "node scripts/keep-warm.js",
+    "health-check": "node scripts/health-check.js"
   },
   "dependencies": {
     "@emotion/react": "^11.13.5",

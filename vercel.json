@@ -1,8 +1,18 @@
 {
-  "crons": [{
-    "path": "/api/cron/update-rates",
-    "schedule": "0 */12 * * *"
-  }],
+  "crons": [
+    {
+      "path": "/api/cron/update-rates",
+      "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/uptime",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/exchange-rates",
+      "schedule": "0 */12 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
@@ -25,5 +35,11 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/**/*": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: forex-calculator
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: EXCHANGE_RATE_API_KEY
+        sync: false
+    autoDeploy: true
+    healthCheckPath: /api/uptime
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 1
