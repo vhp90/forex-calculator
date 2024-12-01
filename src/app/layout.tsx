@@ -19,12 +19,6 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Free Forex Position Size Calculator',
     description: 'Professional forex position size calculator with risk management insights.'
-  },
-  verification: {
-    google: 'your-google-verification-code', // You'll need to add this later
-  },
-  alternates: {
-    canonical: 'https://your-domain.com' // Replace with your actual domain
   }
 }
 
@@ -39,6 +33,8 @@ export default function RootLayout({
         <meta name="robots" content="index, follow" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+        {/* Add your Google verification meta tag here once you have it */}
+        {/* <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE" /> */}
       </head>
       <body className={inter.className}>{children}</body>
     </html>
