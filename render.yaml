@@ -15,5 +15,5 @@ services:
         sync: false
       - key: PORT
         value: "10000"
-    healthCheckPath: /api/uptime
+    healthCheckPath: /api/health
     plan: free

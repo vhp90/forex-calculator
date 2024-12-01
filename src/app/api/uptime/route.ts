@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
-// Cache the last ping time
-let lastPingTime = Date.now();
-
 // Function to ping the external URL
 async function pingExternalUrl() {
   const externalUrl = process.env.RENDER_EXTERNAL_URL;
@@ -14,7 +9,13 @@ async function pingExternalUrl() {
   }
 
   try {
-    const response = await fetch(`${externalUrl}/api/uptime`);
+    const response = await fetch(`${externalUrl}/api/health`, {
+      // Add cache-control headers to prevent caching
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
     if (!response.ok) {
       console.warn('Self-ping failed:', response.status);
     }
@@ -23,21 +24,15 @@ async function pingExternalUrl() {
   }
 }
 
-export async function GET() {
-  const currentTime = Date.now();
-  const timeSinceLastPing = currentTime - lastPingTime;
-  const TEN_MINUTES = 10 * 60 * 1000; // 10 minutes in milliseconds
+// Set revalidate to 0 to prevent caching
+export const revalidate = 0;
 
-  // If it's been more than 10 minutes since the last ping, initiate a new ping
-  if (timeSinceLastPing > TEN_MINUTES) {
-    lastPingTime = currentTime;
-    // Don't await the ping to avoid blocking the response
-    pingExternalUrl().catch(console.error);
-  }
+export async function GET() {
+  // Always ping on every request to ensure activity
+  await pingExternalUrl();
 
   return NextResponse.json({ 
     status: 'ok', 
-    timestamp: currentTime,
-    lastPing: lastPingTime
+    timestamp: Date.now()
   });
 }

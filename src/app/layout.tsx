@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { KeepAlive } from '@/components/KeepAlive'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -36,7 +37,10 @@ export default function RootLayout({
         {/* Add your Google verification meta tag here once you have it */}
         {/* <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE" /> */}
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <KeepAlive />
+        {children}
+      </body>
     </html>
   )
 }
