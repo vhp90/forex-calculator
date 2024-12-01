@@ -1,68 +1,55 @@
 import { NextResponse } from 'next/server';
 import { fetchExchangeRates, FALLBACK_RATES } from '@/lib/api/exchange-rates';
 import { CachedExchangeRates } from '@/lib/api/types';
+import { unstable_cache } from 'next/cache';
 
 // Configure route segment
 export const revalidate = 43200; // 12 hours in seconds
+const CACHE_TAG = 'exchange-rates';
 
-let cachedResponse: NextResponse<CachedExchangeRates> | null = null;
-let lastCacheTime = 0;
-const CACHE_DURATION = 43200 * 1000; // 12 hours in milliseconds
+const getExchangeRates = unstable_cache(
+  async () => {
+    try {
+      const response = await fetchExchangeRates();
+      
+      if (!response || !response.conversion_rates) {
+        throw new Error('Invalid response from exchange rate API');
+      }
+
+      const now = Date.now();
+      return {
+        rates: response.conversion_rates,
+        timestamp: now,
+        expiresAt: now + (43200 * 1000) // 12 hours in milliseconds
+      };
+    } catch (error) {
+      console.error('Error fetching exchange rates:', error);
+      const now = Date.now();
+      return {
+        rates: FALLBACK_RATES,
+        timestamp: now,
+        expiresAt: now + (3600 * 1000), // 1 hour for fallback rates
+        isFallback: true
+      };
+    }
+  },
+  ['exchange-rates'],
+  {
+    revalidate: 43200, // 12 hours
+    tags: [CACHE_TAG]
+  }
+);
 
 export async function GET() {
-  const now = Date.now();
-
-  try {
-    // Return cached response if valid
-    if (cachedResponse && (now - lastCacheTime < CACHE_DURATION)) {
-      return cachedResponse;
-    }
-
-    const response = await fetchExchangeRates();
-    
-    if (!response || !response.conversion_rates) {
-      throw new Error('Invalid response from exchange rate API');
-    }
-
-    const responseData: CachedExchangeRates = {
-      rates: response.conversion_rates,
-      timestamp: now,
-      expiresAt: now + CACHE_DURATION
-    };
-
-    // Create and cache the response
-    cachedResponse = NextResponse.json(responseData, {
-      status: 200,
-      headers: {
-        'Cache-Control': 'public, max-age=43200',
-        'Content-Type': 'application/json',
-      },
-    });
-    lastCacheTime = now;
-
-    return cachedResponse;
-  } catch (error) {
-    console.error('Error fetching exchange rates:', error);
-
-    // Return fallback rates if cache exists
-    if (cachedResponse) {
-      console.log('Using cached rates due to error');
-      return cachedResponse;
-    }
-
-    // Return fallback rates with error status
-    const fallbackData: CachedExchangeRates = {
-      rates: FALLBACK_RATES,
-      timestamp: now,
-      expiresAt: now + CACHE_DURATION
-    };
-
-    return NextResponse.json(fallbackData, {
-      status: 503,
-      headers: {
-        'Content-Type': 'application/json',
-        'Retry-After': '300',
-      },
-    });
-  }
+  const data = await getExchangeRates();
+  
+  return NextResponse.json(data, {
+    status: 200,
+    headers: {
+      'Cache-Control': data.isFallback 
+        ? 'public, max-age=3600' // 1 hour for fallback
+        : 'public, max-age=43200', // 12 hours for real data
+      'Content-Type': 'application/json',
+    },
+  });
 }

@@ -1,4 +1,5 @@
 import { TradingScenario } from '../types/calculator';
+import { Currency } from './api/types';
 
 interface SuggestionRule {
   condition: (scenario: TradingScenario) => boolean;
@@ -11,10 +12,10 @@ export interface TradingSuggestion {
   type: 'warning' | 'info' | 'success';
 }
 
-const formatCurrency = (value: number, currency: string): string => {
+const formatCurrency = (value: number, currency: Currency): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
@@ -28,7 +29,7 @@ const suggestionRules: SuggestionRule[] = [
   // Risk Management Suggestions
   {
     condition: (scenario) => (scenario.riskAmount / scenario.accountBalance) * 100 > 3,
-    message: (scenario) => `High Risk Alert: Your current risk of ${formatCurrency(scenario.riskAmount, scenario.accountCurrency)} represents ${formatPercentage((scenario.riskAmount / scenario.accountBalance) * 100)} of your account. Consider reducing position size to stay within 1-3% risk per trade.`,
+    message: (scenario) => `High Risk Alert: Your current risk of ${formatCurrency(scenario.riskAmount, scenario.accountCurrency as Currency)} represents ${formatPercentage((scenario.riskAmount / scenario.accountBalance) * 100)} of your account. Consider reducing position size to stay within 1-3% risk per trade.`,
     type: 'warning'
   },
   {
@@ -40,7 +41,7 @@ const suggestionRules: SuggestionRule[] = [
   // Position Size Suggestions
   {
     condition: (scenario) => scenario.positionSize > scenario.accountBalance * 3,
-    message: (scenario) => `High Leverage Warning: Your position size of ${formatCurrency(scenario.positionSize, scenario.accountCurrency)} is more than 3x your account balance. Consider reducing leverage to manage risk.`,
+    message: (scenario) => `High Leverage Warning: Your position size of ${formatCurrency(scenario.positionSize, scenario.accountCurrency as Currency)} is more than 3x your account balance. Consider reducing leverage to manage risk.`,
     type: 'warning'
   },
   {
@@ -52,12 +53,12 @@ const suggestionRules: SuggestionRule[] = [
   // Account Balance Based Suggestions
   {
     condition: (scenario) => scenario.accountBalance < 1000,
-    message: (scenario) => `Small Account Strategy: With an account balance of ${formatCurrency(scenario.accountBalance, scenario.accountCurrency)}, focus on consistent small gains and strict risk management.`,
+    message: (scenario) => `Small Account Strategy: With an account balance of ${formatCurrency(scenario.accountBalance, scenario.accountCurrency as Currency)}, focus on consistent small gains and strict risk management.`,
     type: 'info'
   },
   {
     condition: (scenario) => scenario.accountBalance >= 10000,
-    message: (scenario) => `Capital Preservation: With a substantial account of ${formatCurrency(scenario.accountBalance, scenario.accountCurrency)}, consider splitting risk across multiple smaller positions.`,
+    message: (scenario) => `Capital Preservation: With a substantial account of ${formatCurrency(scenario.accountBalance, scenario.accountCurrency as Currency)}, consider splitting risk across multiple smaller positions.`,
     type: 'info'
   },
   
@@ -74,7 +75,7 @@ const suggestionRules: SuggestionRule[] = [
   }
 ];
 
-export const getTradingSuggestions = (scenario: TradingScenario): TradingSuggestion[] => {
+export function getTradingSuggestions(scenario: TradingScenario): TradingSuggestion[] {
   // Filter out invalid scenarios
   if (!scenario.accountBalance || !scenario.stopLoss || !scenario.takeProfit) {
     return [];
@@ -91,4 +92,4 @@ export const getTradingSuggestions = (scenario: TradingScenario): TradingSuggest
   // Sort suggestions by type (warnings first, then info, then success)
   const typeOrder = { warning: 0, info: 1, success: 2 };
   return suggestions.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
-};
+}

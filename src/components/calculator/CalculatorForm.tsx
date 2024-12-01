@@ -6,11 +6,12 @@ import { analyzeRisk } from '@/lib/risk-analysis'
 import { getTradingSuggestions, TradingSuggestion } from '../../lib/trading-suggestions';
 import { TradingScenario } from '../../types/calculator';
 import { HiMinus, HiPlus } from 'react-icons/hi'
-import { CURRENCY_PAIRS, Currency } from '@/lib/api/types';
+import { CURRENCY_PAIRS, Currency, CurrencyPairType } from '@/lib/api/types';
 
 interface CurrencyPairOption {
   value: string;
   label: string;
+  pair: CurrencyPairType;
 }
 
 interface CalculationResult {
@@ -98,7 +99,8 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
 
   const currencyPairOptions: CurrencyPairOption[] = CURRENCY_PAIRS.map(pair => ({
     value: `${pair.from}/${pair.to}`,
-    label: `${pair.from}/${pair.to}`
+    label: `${pair.from}/${pair.to}`,
+    pair: pair
   }));
 
   const getCurrencySymbol = (currency: string) => {

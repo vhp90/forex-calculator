@@ -1,6 +1,8 @@
+import { Currency } from '../lib/api/types';
+
 export interface TradingScenario {
   accountBalance: number;
-  accountCurrency: string;
+  accountCurrency: Currency;
   riskAmount: number;
   positionSize: number;
   stopLoss: number;
