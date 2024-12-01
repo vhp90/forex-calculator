@@ -29,7 +29,7 @@ const suggestionRules: SuggestionRule[] = [
   // Risk Management Suggestions
   {
     condition: (scenario) => (scenario.riskAmount / scenario.accountBalance) * 100 > 3,
-    message: (scenario) => `High Risk Alert: Your current risk of ${formatCurrency(scenario.riskAmount, scenario.accountCurrency as Currency)} represents ${formatPercentage((scenario.riskAmount / scenario.accountBalance) * 100)} of your account. Consider reducing position size to stay within 1-3% risk per trade.`,
+    message: (scenario) => `High Risk Alert: Your current risk of ${formatCurrency(scenario.riskAmount, scenario.accountCurrency)} represents ${formatPercentage((scenario.riskAmount / scenario.accountBalance) * 100)} of your account. Consider reducing position size to stay within 1-3% risk per trade.`,
     type: 'warning'
   },
   {
@@ -41,7 +41,7 @@ const suggestionRules: SuggestionRule[] = [
   // Position Size Suggestions
   {
     condition: (scenario) => scenario.positionSize > scenario.accountBalance * 3,
-    message: (scenario) => `High Leverage Warning: Your position size of ${formatCurrency(scenario.positionSize, scenario.accountCurrency as Currency)} is more than 3x your account balance. Consider reducing leverage to manage risk.`,
+    message: (scenario) => `High Leverage Warning: Your position size of ${formatCurrency(scenario.positionSize, scenario.accountCurrency)} is more than 3x your account balance. Consider reducing leverage to manage risk.`,
     type: 'warning'
   },
   {
@@ -49,47 +49,39 @@ const suggestionRules: SuggestionRule[] = [
     message: (scenario) => `Tight Stop Loss: Your stop loss of ${scenario.stopLoss} pips is quite tight. Consider widening it to account for market volatility.`,
     type: 'info'
   },
-  
-  // Account Balance Based Suggestions
   {
-    condition: (scenario) => scenario.accountBalance < 1000,
-    message: (scenario) => `Small Account Strategy: With an account balance of ${formatCurrency(scenario.accountBalance, scenario.accountCurrency as Currency)}, focus on consistent small gains and strict risk management.`,
+    condition: (scenario) => scenario.stopLoss > 50,
+    message: (scenario) => `Wide Stop Loss: Your stop loss of ${scenario.stopLoss} pips is quite wide. This may require a smaller position size to maintain the same risk level.`,
     type: 'info'
   },
   {
-    condition: (scenario) => scenario.accountBalance >= 10000,
-    message: (scenario) => `Capital Preservation: With a substantial account of ${formatCurrency(scenario.accountBalance, scenario.accountCurrency as Currency)}, consider splitting risk across multiple smaller positions.`,
+    condition: (scenario) => scenario.takeProfit > 0 && scenario.takeProfit < scenario.stopLoss,
+    message: (scenario) => `Risk-Reward Ratio: Your take profit target is closer than your stop loss. Consider adjusting your targets for a better risk-reward ratio.`,
     type: 'info'
   },
   
   // Risk-Reward Based Suggestions
   {
-    condition: (scenario) => (scenario.takeProfit / scenario.stopLoss) < 1.5,
-    message: (scenario) => `Low Risk-Reward Ratio: Your RR ratio of ${(scenario.takeProfit / scenario.stopLoss).toFixed(1)} is below the recommended 1:2. Consider adjusting your take profit level.`,
+    condition: (scenario) => scenario.takeProfit > 0 && (scenario.takeProfit / scenario.stopLoss) < 1.5,
+    message: (scenario) => `Low Reward Ratio: Your risk-reward ratio is less than 1.5:1. Consider adjusting your take profit level for better potential returns.`,
     type: 'warning'
   },
   {
-    condition: (scenario) => (scenario.takeProfit / scenario.stopLoss) >= 2,
-    message: (scenario) => `Excellent Risk-Reward: Your RR ratio of ${(scenario.takeProfit / scenario.stopLoss).toFixed(1)} provides good profit potential.`,
+    condition: (scenario) => scenario.takeProfit > 0 && (scenario.takeProfit / scenario.stopLoss) >= 2,
+    message: (scenario) => `Good Risk-Reward: Your risk-reward ratio is 2:1 or better, which is good for long-term profitability.`,
     type: 'success'
   }
 ];
 
 export function getTradingSuggestions(scenario: TradingScenario): TradingSuggestion[] {
-  // Filter out invalid scenarios
-  if (!scenario.accountBalance || !scenario.stopLoss || !scenario.takeProfit) {
+  if (!scenario || !scenario.accountBalance) {
     return [];
   }
 
-  // Get all applicable suggestions
-  const suggestions = suggestionRules
+  return suggestionRules
     .filter(rule => rule.condition(scenario))
     .map(rule => ({
       message: rule.message(scenario),
       type: rule.type
     }));
-
-  // Sort suggestions by type (warnings first, then info, then success)
-  const typeOrder = { warning: 0, info: 1, success: 2 };
-  return suggestions.sort((a, b) => typeOrder[a.type] - typeOrder[b.type]);
 }

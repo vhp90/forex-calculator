@@ -5,8 +5,9 @@ import { getMarketData } from '@/lib/market-data'
 import { analyzeRisk } from '@/lib/risk-analysis'
 import { getTradingSuggestions, TradingSuggestion } from '../../lib/trading-suggestions';
 import { TradingScenario } from '../../types/calculator';
+import { Currency, CurrencyPairType } from '@/lib/api/types'
 import { HiMinus, HiPlus } from 'react-icons/hi'
-import { CURRENCY_PAIRS, Currency, CurrencyPairType } from '@/lib/api/types';
+import { CURRENCY_PAIRS } from '@/lib/api/types';
 
 interface CurrencyPairOption {
   value: string;
@@ -58,16 +59,28 @@ interface CalculatorFormProps {
   }) => void
 }
 
+interface FormState {
+  accountBalance: string;
+  riskPercentage: string;
+  stopLoss: string;
+  selectedPair: string;
+  displayUnit: 'units' | 'lots';
+  leverage: string;
+  accountCurrency: Currency;
+  riskDisplayMode: 'percentage' | 'money';
+  takeProfit: string;
+}
+
 export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
-  const [formState, setFormState] = useState({
+  const [formState, setFormState] = useState<FormState>({
     accountBalance: '',
     riskPercentage: '',
     stopLoss: '',
     selectedPair: 'EUR/USD',
-    displayUnit: 'units' as 'units' | 'lots',
+    displayUnit: 'units',
     leverage: '0',
-    accountCurrency: 'USD',
-    riskDisplayMode: 'percentage' as 'percentage' | 'money',
+    accountCurrency: 'USD' as Currency,
+    riskDisplayMode: 'percentage',
     takeProfit: ''
   })
 
@@ -87,20 +100,20 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   ]
 
   const currencies = [
-    { value: 'USD', label: 'USD ($)', symbol: '$' },
-    { value: 'EUR', label: 'EUR (€)', symbol: '€' },
-    { value: 'GBP', label: 'GBP (£)', symbol: '£' },
-    { value: 'JPY', label: 'JPY (¥)', symbol: '¥' },
-    { value: 'AUD', label: 'AUD ($)', symbol: 'A$' },
-    { value: 'CAD', label: 'CAD ($)', symbol: 'C$' },
-    { value: 'CHF', label: 'CHF (Fr)', symbol: 'Fr' },
-    { value: 'NZD', label: 'NZD ($)', symbol: 'NZ$' }
+    { value: 'USD' as Currency, label: 'USD ($)', symbol: '$' },
+    { value: 'EUR' as Currency, label: 'EUR (€)', symbol: '€' },
+    { value: 'GBP' as Currency, label: 'GBP (£)', symbol: '£' },
+    { value: 'JPY' as Currency, label: 'JPY (¥)', symbol: '¥' },
+    { value: 'CHF' as Currency, label: 'CHF (Fr)', symbol: 'Fr' },
+    { value: 'CAD' as Currency, label: 'CAD ($)', symbol: '$' },
+    { value: 'AUD' as Currency, label: 'AUD ($)', symbol: '$' },
+    { value: 'NZD' as Currency, label: 'NZD ($)', symbol: '$' }
   ]
 
   const currencyPairOptions: CurrencyPairOption[] = CURRENCY_PAIRS.map(pair => ({
     value: `${pair.from}/${pair.to}`,
     label: `${pair.from}/${pair.to}`,
-    pair: pair
+    pair
   }));
 
   const getCurrencySymbol = (currency: string) => {
@@ -261,7 +274,8 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
       setRiskAmount(riskAmount);
 
       // Get market data
-      const marketData = await getMarketData(formState.selectedPair);
+      const [base, quote] = formState.selectedPair.split('/') as [Currency, Currency];
+      const marketData = await getMarketData(base, quote);
       if (!marketData) {
         throw new Error('Failed to fetch market data');
       }
@@ -323,6 +337,11 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     handleCalculate()
   }
 
+  const handleCurrencyChange = (currency: Currency) => {
+    setFormState(prev => ({ ...prev, accountCurrency: currency }))
+    handleCalculate()
+  }
+
   useEffect(() => {
     try {
       const scenario: TradingScenario = {
@@ -368,7 +387,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               <div className="relative w-20">
                 <select
                   value={formState.accountCurrency}
-                  onChange={(e) => handleInputChange('accountCurrency', e.target.value)}
+                  onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
                   className="w-full h-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-l-lg 
                     text-xs text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
                     shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50
