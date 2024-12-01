@@ -1,10 +1,6 @@
-'use client'
-
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { useEffect } from 'react'
-import { startKeepAlive } from '@/lib/utils/keep-alive'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -31,20 +27,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  useEffect(() => {
-    startKeepAlive();
-  }, []);
-
   return (
     <html lang="en">
       <head>
         <meta name="robots" content="index, follow" />
-        <meta name="description" content="Free Forex Position Size Calculator - Manage risk and optimize your trading positions with our professional-grade calculator." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
         {/* Add your Google verification meta tag here once you have it */}
         {/* <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE" /> */}
-        <title>Forex Position Size Calculator</title>
       </head>
       <body className={inter.className}>{children}</body>
     </html>
