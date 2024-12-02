@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -p $PORT",
+    "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "prepare": "husky install",
+    "postinstall": "npm run prepare",
     "sitemap": "next-sitemap",
     "pre-commit": "lint-staged"
   },
