@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server'
-import { analyticsStore } from '@/lib/analytics-store'
+import { NextRequest, NextResponse } from 'next/server'
+import { recordVisit } from '@/lib/analytics-store'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    analyticsStore.recordVisit()
+    const { path } = await request.json()
+    recordVisit(path)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error recording visit:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to record visit' }, { status: 500 })
   }
 }

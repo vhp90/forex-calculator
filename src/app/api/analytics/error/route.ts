@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { analyticsStore } from '@/lib/analytics-store'
+import { logError } from '@/lib/analytics-store'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const error = new Error(message)
     error.stack = stack
     
-    analyticsStore.recordError(error, path)
+    logError(path, error.message)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to record error:', error)

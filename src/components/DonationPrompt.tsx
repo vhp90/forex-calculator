@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
+declare global {
+  interface Window {
+    disableSupportButton?: boolean;
+  }
+}
+
 const CoffeeIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -24,31 +30,51 @@ const CoffeeIcon = () => (
   </svg>
 )
 
+type ButtonType = 'primary' | 'secondary' | 'success';
+
 export default function DonationPrompt() {
   const [showPopup, setShowPopup] = useState(false)
   const [hasShownPopup, setHasShownPopup] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [hasScrolledUp, setHasScrolledUp] = useState(false)
-  const donationLink = process.env.NEXT_PUBLIC_DONATION_LINK || 'https://www.buymeacoffee.com/yourname'
+  const donationLink = process.env.NEXT_PUBLIC_DONATION_LINK || 'https://buymeacoffee.com/vhp327'
 
   const handleClose = () => {
     setShowPopup(false)
   }
 
-  const logDonationClick = (type) => {
+  const logDonationClick = (type: 'fixed-button' | 'popup'): boolean => {
     // Add logging functionality here
+    return true; // Ensure a value is returned
   }
 
-  // Check if device is mobile
   useEffect(() => {
-    const checkMobile = () => {
+    // Don't show in admin pages
+    if (window.disableSupportButton) {
+      return;
+    }
+
+    const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+    handleResize()
+    window.addEventListener('resize', handleResize)
+
+    // Show popup after 45 seconds if not shown before
+    if (!hasShownPopup) {
+      const timer = setTimeout(() => {
+        setShowPopup(true)
+        setHasShownPopup(true)
+      }, 45000)
+      return () => {
+        clearTimeout(timer)
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+
+    return () => window.removeEventListener('resize', handleResize)
+  }, [hasShownPopup])
 
   // Handle scroll behavior
   useEffect(() => {
@@ -77,14 +103,35 @@ export default function DonationPrompt() {
 
   // Setup popup timer
   useEffect(() => {
+    // Only show popup after 5 minutes if it hasn't been shown before
     if (!hasShownPopup) {
       const timer = setTimeout(() => {
         setShowPopup(true)
         setHasShownPopup(true)
-      }, 180000) // 3 minutes
+      }, 5 * 60 * 1000)
+
       return () => clearTimeout(timer)
     }
+    return () => {} // Add explicit return for the case when hasShownPopup is true
   }, [hasShownPopup])
+
+  const getButtonStyle = (type: ButtonType): string => {
+    switch (type) {
+      case 'primary':
+        return 'bg-blue-600 hover:bg-blue-700 text-white';
+      case 'secondary':
+        return 'bg-gray-200 hover:bg-gray-300 text-gray-800';
+      case 'success':
+        return 'bg-green-600 hover:bg-green-700 text-white';
+      default:
+        return 'bg-gray-200 hover:bg-gray-300 text-gray-800';
+    }
+  };
+
+  // Don't render anything in admin pages
+  if (typeof window !== 'undefined' && window.disableSupportButton) {
+    return null;
+  }
 
   return (
     <>
@@ -146,7 +193,7 @@ export default function DonationPrompt() {
                   href={donationLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center px-4 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium hover:bg-yellow-400 transition-colors"
+                  className={`inline-flex items-center px-4 py-2 ${getButtonStyle('primary')} font-medium hover:bg-yellow-400 transition-colors`}
                   onClick={() => {
                     logDonationClick('popup');
                     handleClose();

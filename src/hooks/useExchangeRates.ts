@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CachedExchangeRates, Currency } from '@/lib/api/types';
-import { FALLBACK_RATES } from '@/lib/api/exchange-rates';
+import { CachedExchangeRates, Currency, FALLBACK_RATES } from '@/lib/api/types';
 
 interface UseExchangeRatesResult {
   rates: Record<Currency, number>;
@@ -20,7 +19,11 @@ export function useExchangeRates(): UseExchangeRatesResult {
   async function fetchRates() {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/exchange-rates');
+      const response = await fetch('/api/exchange-rates', {
+        // Use cache-first strategy, revalidating in the background
+        cache: 'force-cache',
+        next: { revalidate: 43200 } // 12 hours
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch exchange rates');
       }
@@ -38,14 +41,16 @@ export function useExchangeRates(): UseExchangeRatesResult {
 
   useEffect(() => {
     fetchRates();
+    
+    // Set up polling based on next update time
+    const checkInterval = setInterval(() => {
+      if (nextUpdate && Date.now() >= nextUpdate.getTime()) {
+        fetchRates();
+      }
+    }, 60000); // Check every minute
 
-    // Set up polling for updates
-    const pollInterval = setInterval(() => {
-      fetchRates();
-    }, 5 * 60 * 1000); // Poll every 5 minutes
-
-    return () => clearInterval(pollInterval);
-  }, []);
+    return () => clearInterval(checkInterval);
+  }, [nextUpdate]);
 
   // Calculate time until next update
   const timeUntilUpdate = nextUpdate ? nextUpdate.getTime() - Date.now() : null;
@@ -59,3 +64,5 @@ export function useExchangeRates(): UseExchangeRatesResult {
     refresh: fetchRates
   };
 }
+
+export { FALLBACK_RATES };

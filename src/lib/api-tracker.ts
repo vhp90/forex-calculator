@@ -43,8 +43,8 @@ import { trackApiCall as analyticsTrackApiCall } from './analytics-store';
 
 type RouteHandler = (request: Request | NextRequest, ...args: any[]) => Promise<Response | NextResponse>;
 
-export const withApiTracking = (endpoint: string, handler: RouteHandler): RouteHandler => {
-  return async (request: Request | NextRequest, ...args: any[]) => {
+export const withApiTracking = (endpoint: string, handler: (request: Request | NextRequest, ...args: unknown[]) => Promise<Response | NextResponse>): typeof handler => {
+  return async (request: Request | NextRequest, ...args: unknown[]) => {
     const startTime = Date.now();
     try {
       const response = await handler(request, ...args);

@@ -26,10 +26,14 @@ export interface ErrorMetric {
 }
 
 interface AnalyticsStats {
-  calculations: number
-  apiCalls: number
-  errors: number
-  fallbackRates: number
+  visits: VisitMetric[];
+  calculations: CalcMetric[];
+  api: ApiMetric[];
+  errors: ErrorMetric[];
+  totalCalculations: number;
+  totalApiCalls: number;
+  totalErrors: number;
+  totalFallbackRates: number;
 }
 
 export class AnalyticsStore {
@@ -205,34 +209,42 @@ export class AnalyticsStore {
 
 class AnalyticsStoreStats {
   private stats: AnalyticsStats = {
-    calculations: 0,
-    apiCalls: 0,
-    errors: 0,
-    fallbackRates: 0
+    visits: [],
+    calculations: [],
+    api: [],
+    errors: [],
+    totalCalculations: 0,
+    totalApiCalls: 0,
+    totalErrors: 0,
+    totalFallbackRates: 0
   }
 
   incrementCalculations() {
-    this.stats.calculations++
+    this.stats.totalCalculations++
   }
 
   incrementApiCalls() {
-    this.stats.apiCalls++
+    this.stats.totalApiCalls++
   }
 
   incrementErrors() {
-    this.stats.errors++
+    this.stats.totalErrors++
   }
 
   incrementFallbackRates() {
-    this.stats.fallbackRates++
+    this.stats.totalFallbackRates++
   }
 
   resetStats() {
     this.stats = {
-      calculations: 0,
-      apiCalls: 0,
-      errors: 0,
-      fallbackRates: 0
+      visits: [],
+      calculations: [],
+      api: [],
+      errors: [],
+      totalCalculations: 0,
+      totalApiCalls: 0,
+      totalErrors: 0,
+      totalFallbackRates: 0
     }
   }
 
@@ -245,21 +257,49 @@ const analyticsStore = AnalyticsStore.getInstance()
 const analyticsStoreStats = new AnalyticsStoreStats()
 
 // Export instance methods
-export const recordVisit = (path: string) => analyticsStore.recordVisit(path);
-export const trackApiCall = (endpoint: string, success: boolean, duration: number) => analyticsStore.trackApiCall(endpoint, success, duration);
-export const recordCalculation = (currencyPair: string, duration: number, usedFallbackRate: boolean = false) => analyticsStore.recordCalculation(currencyPair, duration, usedFallbackRate);
-export const logError = (endpoint: string, error: string) => analyticsStore.incrementErrors(endpoint, error);
-export const getStats = () => analyticsStore.getStats();
+export function recordVisit(path: string): void {
+  analyticsStore.recordVisit(path);
+}
+
+export function trackApiCall(endpoint: string, success: boolean, duration: number): void {
+  analyticsStore.trackApiCall(endpoint, success, duration);
+}
+
+export function recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false): void {
+  analyticsStore.recordCalculation(currencyPair, duration, usedFallbackRate);
+}
+
+export function logError(endpoint: string, error: string): void {
+  analyticsStore.incrementErrors(endpoint, error);
+}
+
+export function getStats(): AnalyticsStats {
+  return analyticsStoreStats.getStats();
+}
 
 // Export stats methods
-export const incrementCalculations = () => analyticsStoreStats.incrementCalculations();
-export const incrementApiCalls = () => analyticsStoreStats.incrementApiCalls();
-export const incrementErrorCount = () => analyticsStoreStats.incrementErrors();
-export const incrementFallbackRates = () => analyticsStoreStats.incrementFallbackRates();
-export const resetAnalyticsStoreStats = () => analyticsStoreStats.resetStats();
+export function incrementCalculations(): void {
+  analyticsStoreStats.incrementCalculations();
+}
+
+export function incrementApiCalls(): void {
+  analyticsStoreStats.incrementApiCalls();
+}
+
+export function incrementErrorCount(): void {
+  analyticsStoreStats.incrementErrors();
+}
+
+export function incrementFallbackRates(): void {
+  analyticsStoreStats.incrementFallbackRates();
+}
+
+export function resetAnalyticsStoreStats(): void {
+  analyticsStoreStats.resetStats();
+}
 
 // Higher-order function for API tracking
-export const withApiTracking = (handler: Function) => {
+export function withApiTracking(handler: Function): Function {
   return async (...args: any[]) => {
     const startTime = Date.now();
     try {
@@ -271,6 +311,6 @@ export const withApiTracking = (handler: Function) => {
       throw error;
     }
   };
-};
+}
 
 export { analyticsStore };

@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
+// Add this to disable support button in admin pages
+if (typeof window !== 'undefined') {
+  window.disableSupportButton = true;
+}
+
 export default function AdminLayout({
   children,
 }: {
@@ -43,6 +48,15 @@ export default function AdminLayout({
     checkAuth()
     return () => { mounted = false }
   }, [router, pathname])
+
+  // Add cleanup for support button when leaving admin pages
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.disableSupportButton;
+      }
+    };
+  }, []);
 
   // Show loading state
   if (isLoading) {

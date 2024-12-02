@@ -6,29 +6,29 @@ import ResultsDisplay from '@/components/calculator/ResultsDisplay'
 import RiskAnalysis from '@/components/calculator/RiskAnalysis'
 
 interface CalculationResults {
-  positionSize: number
-  potentialLoss: number
-  requiredMargin: number
-  pipValue: number
-  displayUnit: 'units' | 'lots'
-  leverage: string
-  accountCurrency: string
+  positionSize: number;
+  potentialLoss: number;
+  requiredMargin: number;
+  pipValue: number;
+  displayUnit: 'units' | 'lots';
+  leverage: number;
+  accountCurrency: string;
   riskAnalysis: {
-    riskRating: 'Low' | 'Medium' | 'High' | 'Very High'
-    riskScore: number
-    suggestions: string[]
-    maxRecommendedLeverage: number
-  }
+    riskRating: 'Low' | 'Medium' | 'High' | 'Very High';
+    riskScore: number;
+    suggestions: string[];
+    maxRecommendedLeverage: number;
+  };
 }
 
 export default function CalculatorPage() {
-  const [results, setResults] = useState<CalculationResults>({
+  const [calculationResults, setCalculationResults] = useState<CalculationResults>({
     positionSize: 0,
     potentialLoss: 0,
     requiredMargin: 0,
     pipValue: 0,
     displayUnit: 'units',
-    leverage: '0',
+    leverage: 1,
     accountCurrency: 'USD',
     riskAnalysis: {
       riskRating: 'Low',
@@ -39,7 +39,7 @@ export default function CalculatorPage() {
   })
 
   const handleCalculationComplete = (newResults: CalculationResults) => {
-    setResults(newResults)
+    setCalculationResults(newResults)
   }
 
   return (
@@ -60,12 +60,12 @@ export default function CalculatorPage() {
               <CalculatorForm onCalculationComplete={handleCalculationComplete} />
             </div>
             <div className="glass-card p-4 sm:p-6">
-              <ResultsDisplay {...results} />
+              <ResultsDisplay {...calculationResults} />
             </div>
           </div>
           
           <div className="glass-card p-4 sm:p-6 h-fit">
-            <RiskAnalysis {...results.riskAnalysis} />
+            <RiskAnalysis {...calculationResults.riskAnalysis} />
           </div>
         </div>
       </div>

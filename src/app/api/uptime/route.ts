@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withApiTracking } from '@/lib/analytics-store';
+import { withApiTracking } from '@/lib/api-tracker';
 
 // Function to ping the external URL
 async function pingExternalUrl() {
@@ -28,14 +28,14 @@ async function pingExternalUrl() {
 // Set revalidate to 0 to prevent caching
 export const revalidate = 0;
 
-export async function GET() {
+async function handler(request: Request) {
   // Always ping on every request to ensure activity
   await pingExternalUrl();
 
-  return withApiTracking('/api/uptime', async () => {
-    return NextResponse.json({ 
-      status: 'ok', 
-      timestamp: Date.now()
-    });
+  return NextResponse.json({ 
+    status: 'ok', 
+    timestamp: Date.now()
   });
 }
+
+export const GET = withApiTracking('/api/uptime', handler);

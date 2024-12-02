@@ -2,10 +2,13 @@
   "name": "Forex Position Size Calculator",
   "short_name": "Forex Calc",
   "description": "Professional Forex position size calculator for risk management and trade planning",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#111827",
-  "theme_color": "#000000",
+  "theme_color": "#111827",
+  "categories": ["finance", "calculator", "tools"],
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -14,10 +17,35 @@
       "purpose": "any maskable"
     },
     {
+      "src": "/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "New Calculation",
+      "short_name": "Calculate",
+      "description": "Start a new position size calculation",
+      "url": "/calculator?source=shortcut",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "Calculator Interface"
+    }
+  ],
+  "prefer_related_applications": false
 }

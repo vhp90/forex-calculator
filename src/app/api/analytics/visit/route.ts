@@ -1,9 +1,12 @@
-import { NextResponse } from 'next/server'
-import { analyticsStore } from '@/lib/analytics-store'
+import { NextRequest, NextResponse } from 'next/server'
+import { AnalyticsStore } from '@/lib/analytics-store'
 
-export async function POST() {
+const analyticsStore = AnalyticsStore.getInstance();
+
+export async function POST(request: NextRequest) {
   try {
-    analyticsStore.recordVisit()
+    const { path } = await request.json()
+    await analyticsStore.recordVisit(path)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to record visit:', error)
