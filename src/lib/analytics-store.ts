@@ -1,3 +1,5 @@
+'use server';
+
 import { Currency } from './api/types';
 import { unstable_cache } from 'next/cache';
 
@@ -38,174 +40,144 @@ interface AnalyticsStats {
   apiEndpoints: { [endpoint: string]: { totalCalls: number, errors: { [error: string]: number }, avgResponseTime: number } }
 }
 
-export class AnalyticsStore {
-  private static instance: AnalyticsStore;
-  private stats: AnalyticsStats;
+// Initialize stats
+let stats: AnalyticsStats = {
+  visits: [],
+  calculations: [],
+  api: [],
+  errors: [],
+  totalCalculations: 0,
+  totalApiCalls: 0,
+  totalErrors: 0,
+  totalFallbackRates: 0,
+  apiEndpoints: {}
+};
 
-  constructor() {
-    this.stats = {
-      visits: [],
-      calculations: [],
-      api: [],
-      errors: [],
-      totalCalculations: 0,
-      totalApiCalls: 0,
-      totalErrors: 0,
-      totalFallbackRates: 0,
-      apiEndpoints: {}
+// Cache functions
+async function getStatsFromCache(): Promise<AnalyticsStats> {
+  const getCachedStats = unstable_cache(
+    async () => stats,
+    ['analytics-stats'],
+    { revalidate: 3600 }
+  );
+  return getCachedStats();
+}
+
+async function setStatsToCache(newStats: AnalyticsStats): Promise<void> {
+  stats = newStats;
+  const updateStats = unstable_cache(
+    async () => newStats,
+    ['analytics-stats'],
+    { revalidate: 3600 }
+  );
+  await updateStats();
+}
+
+// Helper functions
+function cleanup(stats: AnalyticsStats): void {
+  const now = Date.now();
+  const hourAgo = now - 24 * 60 * 60 * 1000;
+
+  // Remove old records
+  stats.visits = stats.visits.filter(v => v.timestamp > hourAgo);
+  stats.calculations = stats.calculations.filter(c => c.timestamp > hourAgo);
+  stats.api = stats.api.filter(a => a.timestamp > hourAgo);
+  stats.errors = stats.errors.filter(e => e.timestamp > hourAgo);
+}
+
+async function updateStats(updateFn: (stats: AnalyticsStats) => AnalyticsStats | Promise<AnalyticsStats>): Promise<void> {
+  const currentStats = await getStatsFromCache();
+  const updatedStats = await updateFn(currentStats);
+  await setStatsToCache(updatedStats);
+}
+
+// Exported server actions
+export async function recordVisit(path: string): Promise<void> {
+  await updateStats(stats => {
+    const visit: VisitMetric = {
+      timestamp: Date.now(),
+      path
     };
-  }
+    stats.visits.push(visit);
+    cleanup(stats);
+    return stats;
+  });
+}
 
-  static getInstance(): AnalyticsStore {
-    if (!AnalyticsStore.instance) {
-      AnalyticsStore.instance = new AnalyticsStore();
+export async function trackApiCall(endpoint: string, success: boolean, duration: number): Promise<void> {
+  await updateStats(stats => {
+    const metric: ApiMetric = {
+      timestamp: Date.now(),
+      endpoint,
+      duration,
+      success
+    };
+    stats.api.push(metric);
+    stats.totalApiCalls++;
+    cleanup(stats);
+    return stats;
+  });
+}
+
+export async function recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false): Promise<void> {
+  await updateStats(stats => {
+    const calc: CalcMetric = {
+      timestamp: Date.now(),
+      currencyPair,
+      duration,
+      usedFallbackRate
+    };
+    stats.calculations.push(calc);
+    stats.totalCalculations++;
+    if (usedFallbackRate) {
+      stats.totalFallbackRates++;
     }
-    return AnalyticsStore.instance;
-  }
-
-  public async setStats(newStats: AnalyticsStats): Promise<void> {
-    this.stats = newStats;
-    const updateStats = unstable_cache(
-      async () => newStats,
-      ['analytics-stats'],
-      { revalidate: 3600 }
-    );
-    await updateStats();
-  }
-
-  public async getStats(): Promise<AnalyticsStats> {
-    return this.stats;
-  }
-
-  async recordVisit(path: string): Promise<void> {
-    await this.updateStats(stats => {
-      const visit: VisitMetric = {
-        timestamp: Date.now(),
-        path
-      };
-      stats.visits.push(visit);
-      this.cleanup(stats);
-      return stats;
-    });
-  }
-
-  async trackApiCall(endpoint: string, success: boolean, duration: number): Promise<void> {
-    await this.updateStats(stats => {
-      const metric: ApiMetric = {
-        timestamp: Date.now(),
-        endpoint,
-        duration,
-        success
-      };
-      stats.api.push(metric);
-      stats.totalApiCalls++;
-      this.cleanup(stats);
-      return stats;
-    });
-  }
-
-  async recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false): Promise<void> {
-    await this.updateStats(stats => {
-      const calc: CalcMetric = {
-        timestamp: Date.now(),
-        currencyPair,
-        duration,
-        usedFallbackRate
-      };
-      stats.calculations.push(calc);
-      stats.totalCalculations++;
-      if (usedFallbackRate) {
-        stats.totalFallbackRates++;
-      }
-      this.cleanup(stats);
-      return stats;
-    });
-  }
-
-  async logError(endpoint: string, error: string): Promise<void> {
-    await this.updateStats(stats => {
-      const errorMetric: ErrorMetric = {
-        timestamp: Date.now(),
-        endpoint,
-        error
-      };
-      stats.errors.push(errorMetric);
-      stats.totalErrors++;
-      this.cleanup(stats);
-      return stats;
-    });
-  }
-
-  private cleanup(stats: AnalyticsStats): void {
-    const now = Date.now();
-    const hourAgo = now - 24 * 60 * 60 * 1000;
-
-    // Remove old records
-    stats.visits = stats.visits.filter(v => v.timestamp > hourAgo);
-    stats.calculations = stats.calculations.filter(c => c.timestamp > hourAgo);
-    stats.api = stats.api.filter(a => a.timestamp > hourAgo);
-    stats.errors = stats.errors.filter(e => e.timestamp > hourAgo);
-  }
-
-  private async updateStats(updateFn: (stats: AnalyticsStats) => AnalyticsStats | Promise<AnalyticsStats>): Promise<void> {
-    const stats = await this.getStats();
-    const updatedStats = await updateFn(stats);
-    await this.setStats(updatedStats);
-  }
+    cleanup(stats);
+    return stats;
+  });
 }
 
-// Export a singleton instance
-export const analyticsStore = AnalyticsStore.getInstance();
-
-// Export instance methods
-export function recordVisit(path: string): void {
-  analyticsStore.recordVisit(path);
+export async function logError(endpoint: string, error: string): Promise<void> {
+  await updateStats(stats => {
+    const errorMetric: ErrorMetric = {
+      timestamp: Date.now(),
+      endpoint,
+      error
+    };
+    stats.errors.push(errorMetric);
+    stats.totalErrors++;
+    cleanup(stats);
+    return stats;
+  });
 }
 
-export function trackApiCall(endpoint: string, success: boolean, duration: number): void {
-  analyticsStore.trackApiCall(endpoint, success, duration);
+export async function incrementErrorCount(endpoint: string, error: string): Promise<void> {
+  await updateStats(stats => {
+    const endpointStats = stats.apiEndpoints[endpoint] || {
+      totalCalls: 0,
+      errors: {},
+      avgResponseTime: 0
+    };
+    
+    endpointStats.errors[error] = (endpointStats.errors[error] || 0) + 1;
+    stats.apiEndpoints[endpoint] = endpointStats;
+    return stats;
+  });
 }
 
-export function recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false): void {
-  analyticsStore.recordCalculation(currencyPair, duration, usedFallbackRate);
+export async function getStats(): Promise<AnalyticsStats> {
+  return getStatsFromCache();
 }
 
-export function logError(endpoint: string, error: string): void {
-  analyticsStore.logError(endpoint, error);
-}
-
-export async function incrementErrorCount(endpoint: string, error: string) {
-  const stats = await getStats();
-  const endpointStats = stats.apiEndpoints[endpoint] || {
-    totalCalls: 0,
-    errors: {},
-    avgResponseTime: 0
-  };
-  
-  endpointStats.errors[error] = (endpointStats.errors[error] || 0) + 1;
-  stats.apiEndpoints[endpoint] = endpointStats;
-  
-  await updateStats(stats);
-}
-
-export function getStats(): Promise<AnalyticsStats> {
-  return analyticsStore.getStats();
-}
-
-export async function updateStats(stats: AnalyticsStats): Promise<void> {
-  await analyticsStore.setStats(stats);
-}
-
-// Higher-order function for API tracking
-export function withApiTracking(handler: Function): Function {
+export async function withApiTracking(handler: Function): Promise<Function> {
   return async (...args: any[]) => {
     const startTime = Date.now();
     try {
       const result = await handler(...args);
-      analyticsStore.trackApiCall(args[0]?.url || 'unknown', true, Date.now() - startTime);
+      await trackApiCall(args[0]?.url || 'unknown', true, Date.now() - startTime);
       return result;
     } catch (error) {
-      analyticsStore.trackApiCall(args[0]?.url || 'unknown', false, Date.now() - startTime);
+      await trackApiCall(args[0]?.url || 'unknown', false, Date.now() - startTime);
       throw error;
     }
   };

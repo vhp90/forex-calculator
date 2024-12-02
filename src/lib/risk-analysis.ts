@@ -5,99 +5,86 @@ interface RiskAnalysisResult {
   maxRecommendedLeverage: number
 }
 
+interface RiskScenario {
+  accountBalance: number
+  riskPercentage: number
+  stopLossPips: number
+  leverage: number
+  volatility?: number
+}
+
 export function analyzeRisk(
-  accountBalance: number,
-  riskPercentage: number,
-  stopLossPips: number,
-  leverage: number,
-  volatility: number = 0.001 // Default daily volatility of 0.1%
+  scenario: RiskScenario
 ): RiskAnalysisResult {
-  // Calculate risk factors
+  const { accountBalance, riskPercentage, stopLossPips, leverage, volatility = 0.001 } = scenario
+  
+  // Validate inputs to prevent NaN
+  if (!accountBalance || !riskPercentage || !stopLossPips || !leverage || 
+      isNaN(accountBalance) || isNaN(riskPercentage) || isNaN(stopLossPips) || isNaN(leverage)) {
+    return {
+      riskRating: 'Very High',
+      riskScore: 100,
+      suggestions: ['Please provide valid numerical values for all parameters'],
+      maxRecommendedLeverage: 1
+    }
+  }
+  
+  // Calculate risk amount
   const riskAmount = accountBalance * (riskPercentage / 100)
-  const riskToBalanceRatio = riskAmount / accountBalance
-
-  // Calculate individual risk components (0-100 scale)
-  const riskPercentageScore = Math.min(100, (riskPercentage / 3) * 100) // >3% is maximum risk
-  const stopLossScore = Math.min(100, (10 / stopLossPips) * 100) // <10 pips is maximum risk
-  const leverageScore = Math.min(100, (leverage / 20)) // >2000 is maximum risk
-  const balanceScore = Math.max(0, 100 - Math.log10(accountBalance) * 20) // Higher balance = lower risk
-
-  // Calculate overall risk score (0-100)
-  const riskScore = Math.min(
-    100,
-    (riskPercentageScore * 0.4) + // Risk percentage has highest weight
-    (stopLossScore * 0.3) + // Stop loss has second highest weight
-    (leverageScore * 0.2) + // Current leverage
-    (balanceScore * 0.1) // Account balance has lowest weight
-  )
-
+  
+  // Calculate position size ratio
+  const positionSizeRatio = riskAmount / accountBalance
+  
+  // Calculate base risk score (0-100)
+  let riskScore = 0
+  
+  // Risk percentage contribution (0-40 points)
+  riskScore += Math.min(40, (riskPercentage / 3) * 40)
+  
+  // Leverage contribution (0-30 points)
+  riskScore += Math.min(30, (leverage / 100) * 30)
+  
+  // Stop loss contribution (0-30 points)
+  riskScore += Math.min(30, (10 / stopLossPips) * 30)
+  
+  // Ensure riskScore stays within 0-100 range
+  riskScore = Math.max(0, Math.min(100, riskScore))
+  
   // Determine risk rating
   let riskRating: 'Low' | 'Medium' | 'High' | 'Very High'
   if (riskScore < 25) riskRating = 'Low'
   else if (riskScore < 50) riskRating = 'Medium'
   else if (riskScore < 75) riskRating = 'High'
   else riskRating = 'Very High'
-
-  // Calculate maximum recommended leverage
-  const baseMaxLeverage = 2000
-
-  // Adjust based on risk percentage (lower risk % allows higher leverage)
-  const riskPercentageMultiplier = Math.max(0.1, 1 - (riskPercentage / 5))
   
-  // Adjust based on stop loss (wider stop loss allows higher leverage)
-  const stopLossMultiplier = Math.min(1, stopLossPips / 20)
-  
-  // Adjust based on account balance (higher balance allows higher leverage)
-  const balanceMultiplier = Math.min(1, Math.log10(accountBalance) / 4)
-
-  // Calculate final recommended leverage
-  let maxRecommendedLeverage = Math.floor(
-    baseMaxLeverage * 
-    riskPercentageMultiplier * 
-    stopLossMultiplier * 
-    balanceMultiplier
+  // Calculate max recommended leverage based on risk score and account balance
+  const maxRecommendedLeverage = Math.max(
+    Math.floor((100 - riskScore) / 10) * 10, // Round down to nearest 10
+    1 // Minimum leverage of 1
   )
-
-  // Ensure it stays within reasonable bounds
-  maxRecommendedLeverage = Math.max(1, Math.min(2000, maxRecommendedLeverage))
-
+  
   // Generate suggestions
   const suggestions: string[] = []
-
+  
   if (riskPercentage > 2) {
     suggestions.push('Consider reducing risk percentage to 2% or less of account balance')
   }
-
+  
   if (leverage > maxRecommendedLeverage) {
-    suggestions.push(`Consider reducing leverage to ${maxRecommendedLeverage}:1 or less based on your current risk parameters`)
+    suggestions.push(`Consider reducing leverage to ${maxRecommendedLeverage}:1 or less based on your risk parameters`)
   }
-
+  
   if (stopLossPips < 10) {
     suggestions.push('Stop loss is very tight. Consider widening it to at least 10 pips')
   }
-
+  
   if (riskScore > 75) {
     suggestions.push('Overall risk is very high. Consider adjusting multiple parameters to reduce risk')
   }
-
-  // Log the calculation factors for debugging
-  console.log('Risk Analysis Factors:', {
-    riskPercentageScore,
-    stopLossScore,
-    leverageScore,
-    balanceScore,
-    riskScore,
-    maxRecommendedLeverage,
-    multipliers: {
-      risk: riskPercentageMultiplier,
-      stopLoss: stopLossMultiplier,
-      balance: balanceMultiplier
-    }
-  })
-
+  
   return {
     riskRating,
-    riskScore,
+    riskScore: Math.round(riskScore),
     suggestions,
     maxRecommendedLeverage
   }

@@ -69,6 +69,15 @@ interface TradingSuggestion {
   type: string;
 }
 
+interface RiskAnalysisProps {
+  accountBalance: number;
+  accountCurrency: Currency;
+  riskAmount: number;
+  positionSize: number;
+  stopLoss: number;
+  takeProfit: number;
+}
+
 const debounce = <F extends (...args: any[]) => void>(fn: F, delay: number) => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const debouncedFn = (...args: Parameters<F>) => {
@@ -108,28 +117,47 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
   const [riskAmount, setRiskAmount] = useState(0)
   const [alertMessage, setAlertMessage] = useState('')
 
+  const calculatePositionSize = (
+    accountBalance: number,
+    riskAmount: number,
+    stopLoss: number,
+    rate: number,
+    leverage: number
+  ): { units: number; lots: number } => {
+    // Calculate position size in units
+    const pipSize = formState.selectedPair.includes('JPY') ? 0.01 : 0.0001;
+    const stopLossAmount = stopLoss * pipSize;
+    
+    let positionSizeUnits: number;
+    
+    if (stopLossAmount === 0) {
+      return { units: 0, lots: 0 };
+    }
+    
+    positionSizeUnits = (riskAmount / stopLossAmount);
+    const positionSizeLots = positionSizeUnits / 100000; // Standard lot size
+
+    return {
+      units: positionSizeUnits,
+      lots: positionSizeLots
+    };
+  };
+
   // Form submission handler
   const handleSubmit = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
     if (event) {
       event.preventDefault()
     }
     
-    // Only validate and show errors if there are actual values entered
-    const hasValues = formState.accountBalance || formState.riskPercentage || formState.stopLoss;
+    // Enhanced validation with specific error messages
     const validationErrors = [];
+    if (!formState.accountBalance) validationErrors.push('Account Balance');
+    if (!formState.riskPercentage) validationErrors.push('Risk Percentage');
+    if (!formState.stopLoss) validationErrors.push('Stop Loss');
+    if (!formState.selectedPair) validationErrors.push('Currency Pair');
     
-    if (hasValues) {
-      if (!formState.accountBalance) validationErrors.push('Account Balance');
-      if (!formState.riskPercentage) validationErrors.push('Risk Percentage');
-      if (!formState.stopLoss) validationErrors.push('Stop Loss');
-      if (!formState.selectedPair) validationErrors.push('Currency Pair');
-      
-      if (validationErrors.length > 0) {
-        setError(`Please fill in the following required fields: ${validationErrors.join(', ')}`);
-        return;
-      }
-    } else {
-      setError('');
+    if (validationErrors.length > 0) {
+      setError(`Please fill in the following required fields: ${validationErrors.join(', ')}`);
       return;
     }
 
@@ -137,103 +165,41 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
     setIsLoading(true);
 
     try {
-      const [base, quote] = formState.selectedPair.split('/') as [Currency, Currency];
-      const marketData = await getMarketData(base, quote);
-      
-      if (!marketData || !marketData.rate) {
-        throw new Error('Failed to get market data');
-      }
-
-      const balance = parseFloat(formState.accountBalance);
-      const risk = parseFloat(formState.riskPercentage);
-      const stopLossPips = parseFloat(formState.stopLoss);
+      const accountBalance = parseFloat(formState.accountBalance);
+      const riskPercentage = parseFloat(formState.riskPercentage);
+      const stopLoss = parseFloat(formState.stopLoss);
       const leverage = parseFloat(formState.leverage);
-      
-      // Validate numeric inputs
-      if (isNaN(balance) || balance <= 0) throw new Error('Invalid account balance');
-      if (isNaN(risk) || risk <= 0 || risk > 100) throw new Error('Risk percentage must be between 0 and 100');
-      if (isNaN(stopLossPips) || stopLossPips <= 0) throw new Error('Invalid stop loss');
-      if (isNaN(leverage) || leverage < 0) throw new Error('Invalid leverage');
+      const takeProfit = parseFloat(formState.takeProfit);
 
-      const riskAmount = balance * (risk / 100);
-      setRiskAmount(riskAmount);
+      if (isNaN(accountBalance) || isNaN(riskPercentage) || isNaN(stopLoss)) {
+        throw new Error('Please fill in all required fields with valid numbers');
+      }
 
-      // Standard lot size and pip calculations with JPY pair handling
-      const standardLotSize = 100000;
-      const pipSize = formState.selectedPair.includes('JPY') ? 0.01 : 0.0001;
-      const stopLossAmount = stopLossPips * pipSize;
-
-      // Calculate position size with safety checks and cross rate handling
-      if (stopLossAmount === 0) throw new Error('Invalid stop loss calculation');
-      
-      let positionSize: number;
       const [baseCurrency, quoteCurrency] = formState.selectedPair.split('/') as [Currency, Currency];
+      const marketData = await getMarketData(baseCurrency, quoteCurrency);
       
-      // Calculate position size in base currency units
-      if (quoteCurrency === 'USD') {
-        // Direct USD quote (e.g., EUR/USD)
-        positionSize = (riskAmount / stopLossAmount);
-      } else if (baseCurrency === 'USD') {
-        // Inverse USD quote (e.g., USD/JPY)
-        positionSize = (riskAmount / stopLossAmount) * marketData.rate;
-      } else {
-        // Cross rate (e.g., EUR/JPY) - need to convert through USD
-        try {
-          const usdQuoteRate = await getMarketData('USD' as Currency, quoteCurrency as Currency);
-          if (!usdQuoteRate || !usdQuoteRate.rate) {
-            throw new Error('Failed to get USD quote rate');
-          }
-          positionSize = (riskAmount / stopLossAmount) * (marketData.rate / usdQuoteRate.rate);
-        } catch (error) {
-          console.warn('Failed to get cross rate, using approximation:', error);
-          positionSize = (riskAmount / stopLossAmount);
-        }
-      }
-
-      // Convert to lots if needed
-      const lotsSize = positionSize / standardLotSize;
-      const finalPositionSize = formState.displayUnit === 'lots' ? lotsSize : positionSize;
-
-      // Validate calculation results
-      if (!isFinite(finalPositionSize) || finalPositionSize <= 0) {
-        throw new Error('Invalid position size calculation');
-      }
-
-      // Get risk analysis
-      const riskAnalysis = analyzeRisk(
-        balance,
-        risk,
-        stopLossPips,
-        leverage,
-        marketData.volatility
+      const riskAmount = (accountBalance * riskPercentage) / 100;
+      const position = calculatePositionSize(
+        accountBalance,
+        riskAmount,
+        stopLoss,
+        marketData.rate,
+        leverage
       );
 
-      // Get trading suggestions
-      const scenario: TradingScenario = {
-        accountBalance: balance,
-        accountCurrency: formState.accountCurrency,
-        riskAmount: riskAmount,
-        positionSize: finalPositionSize,
-        stopLoss: stopLossPips,
-        takeProfit: parseFloat(formState.takeProfit) || 0,
-      };
-      const suggestions = getTradingSuggestions(scenario);
-      handleSuggestions(suggestions);
-
-      // Update state and notify parent
       const results: CalculationResult = {
-        positionSize: finalPositionSize,
-        positionSizeLots: lotsSize,
+        positionSize: formState.displayUnit === 'lots' ? position.lots : position.units,
+        positionSizeLots: position.lots,
         potentialLoss: riskAmount,
-        requiredMargin: finalPositionSize * marketData.rate / leverage,
-        pipValue: (finalPositionSize * pipSize) * marketData.rate,
+        requiredMargin: (position.units * marketData.rate) / leverage,
+        pipValue: (position.units * marketData.rate * (formState.selectedPair.includes('JPY') ? 0.01 : 0.0001)),
         marketData,
-        riskAnalysis: {
-          riskRating: riskAnalysis.riskRating,
-          riskScore: riskAnalysis.riskScore,
-          suggestions: riskAnalysis.suggestions,
-          maxRecommendedLeverage: riskAnalysis.maxRecommendedLeverage
-        },
+        riskAnalysis: analyzeRisk({
+          accountBalance,
+          riskPercentage,
+          stopLossPips: stopLoss,
+          leverage,
+        }),
         leverage,
         displayUnit: formState.displayUnit,
         accountCurrency: formState.accountCurrency
@@ -474,12 +440,6 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
     debouncedHandleSubmit();
     return () => debouncedHandleSubmit.cancel();
   }, [debouncedHandleSubmit]);
-
-  const handleCalculation = (balance: number, riskAmount: number, stopLossPips: number, leverage: number, standardLotSize: number, pipSize: number) => {
-    const stopLossAmount = stopLossPips * pipSize;
-    const positionSize = (balance * riskAmount) / (stopLossAmount * leverage);
-    return positionSize;
-  };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
@@ -771,20 +731,6 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
             </p>
           </div>
         </div>
-
-        {/* Error message */}
-        {error && (
-          <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-amber-400 text-sm font-medium">{error}</p>
-          </div>
-        )}
-
-        {/* Alert message */}
-        {alertMessage && (
-          <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-            <p className="text-blue-400 text-sm font-medium">{alertMessage}</p>
-          </div>
-        )}
 
         {/* Trading Suggestions */}
         <div className="mt-8 space-y-3">
