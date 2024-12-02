@@ -55,7 +55,7 @@ const updateStats = unstable_cache(
   },
   ['exchange-rate-stats-update'],
   {
-    revalidate: 0, // Don't cache updates
+    revalidate: false, // Don't cache updates
     tags: ['exchange-rate-stats']
   }
 );

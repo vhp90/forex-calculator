@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start -p $PORT",
     "lint": "next lint",
-    "postbuild": "next-sitemap"
+    "postbuild": "next-sitemap",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky install",
+    "pre-commit": "lint-staged"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
@@ -43,11 +46,18 @@
     "@types/react-dom": "^18.2.18",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
     "next-sitemap": "^4.2.3",
     "sharp": "^0.33.5",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "npm run typecheck"
+    ]
   }
 }

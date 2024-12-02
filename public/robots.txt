@@ -1,9 +1,10 @@
+# *
 User-agent: *
 Allow: /
-Disallow: /api/
+Disallow: /api
 
-# Optimize crawling
-Crawl-delay: 1
+# Host
+Host: https://forex-calculator.onrender.com
 
-
+# Sitemaps
 Sitemap: https://forex-calculator.onrender.com/sitemap.xml
