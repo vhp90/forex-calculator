@@ -1,6 +1,5 @@
-import type { IConfig } from 'next-sitemap';
-
-const config: IConfig = {
+/** @type {import('next-sitemap').IConfig} */
+module.exports = {
   siteUrl: 'https://forex-calculator.onrender.com',
   generateRobotsTxt: true,
   robotsTxtOptions: {
@@ -19,6 +18,4 @@ const config: IConfig = {
   priority: 1.0,
   sitemapSize: 7000,
   exclude: ['/api/*'],
-};
-
-export default config;
+}
