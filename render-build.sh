@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set production environment
+export NODE_ENV=production
+
 # Skip husky installation in production
 export HUSKY_SKIP_INSTALL=1
 
