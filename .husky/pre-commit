@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-npm run pre-commit
+#!/bin/sh
+if [ -z "${HUSKY_SKIP_HOOKS}" ]; then
+  npm run pre-commit
+fi
