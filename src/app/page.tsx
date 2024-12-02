@@ -73,6 +73,38 @@ export default function Home() {
           </ul>
         </section>
 
+        <section className="mb-16">
+          <div className="p-8 bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20 rounded-2xl">
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="text-3xl font-bold text-yellow-500 mb-4">
+                Built with ❤️ by a Solo Developer
+              </h2>
+              <p className="text-lg text-gray-300 mb-6">
+                I'm committed to keeping this calculator free and ad-free forever. Your support helps me maintain and improve it for the trading community.
+              </p>
+              <div className="inline-flex flex-col sm:flex-row gap-4 items-center justify-center">
+                <p className="text-gray-400">
+                  <span className="font-semibold text-yellow-500">10,000+</span> calculations performed
+                </p>
+                <span className="hidden sm:inline text-gray-500">•</span>
+                <p className="text-gray-400">
+                  <span className="font-semibold text-yellow-500">100%</span> free forever
+                </p>
+                <span className="hidden sm:inline text-gray-500">•</span>
+                <p className="text-gray-400">
+                  <span className="font-semibold text-yellow-500">0</span> ads
+                </p>
+                <a
+                  href="mailto:vhp327@gmail.com"
+                  className="px-6 py-2 bg-yellow-500 text-gray-900 rounded-lg font-medium hover:bg-yellow-400 transition-colors"
+                >
+                  Contact Me
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="text-center">
           <Link
             href="/calculator"

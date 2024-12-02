@@ -17,7 +17,7 @@ A professional-grade forex position size calculator built with Next.js, TypeScri
 ### `/src/app`
 Next.js 13 app directory containing routes and API endpoints.
 
-- `page.tsx`: Landing page with features and benefits
+- `page.tsx`: Landing page with features, benefits, and contact information
 - `calculator/page.tsx`: Main calculator page
 - `layout.tsx`: Root layout with metadata and global styles
 - `globals.css`: Global CSS styles
@@ -25,6 +25,8 @@ Next.js 13 app directory containing routes and API endpoints.
 #### API Routes
 - `/api/exchange-rates/route.ts`: Handles exchange rate fetching with caching
 - `/api/uptime/route.ts`: Health check endpoint with self-ping mechanism
+- `/api/admin/auth/route.ts`: Handles admin authentication
+- `/api/admin/stats/route.ts`: Provides analytics data for admin dashboard
 
 ### `/src/components`
 React components organized by feature.
@@ -33,22 +35,7 @@ React components organized by feature.
 - `calculator/CalculatorForm.tsx`: Main form component for position size calculations
 - `calculator/ResultsDisplay.tsx`: Displays calculation results
 - `calculator/RiskAnalysis.tsx`: Shows risk analysis and suggestions
-
-### `/src/lib`
-Core business logic and utilities.
-
-- `api/exchange-rates.ts`: Exchange rate API integration with retry logic
-- `api/types.ts`: TypeScript definitions for API responses
-- `calculator.ts`: Position size calculation logic
-- `market-data.ts`: Market data handling with caching
-- `risk-analysis.ts`: Risk assessment calculations
-- `trading-suggestions.ts`: Trading advice generation
-
-### `/src/types`
-TypeScript type definitions.
-
-- `calculator.ts`: Types for calculator inputs and results
-- `trading.ts`: Types for trading-related data structures
+- `DonationPrompt.tsx`: Support button component with mobile responsiveness
 
 ## Key Features
 
@@ -70,25 +57,38 @@ TypeScript type definitions.
 - Market volatility consideration
 - Risk-reward ratio analysis
 
-## API Integration
+### 4. User Interface
+- Mobile-responsive design
+- Dark theme with yellow accents
+- Sticky support button
+- Contact integration
+- Admin interface
 
-### Exchange Rate API
-- Base URL: `https://v6.exchangerate-api.com/v6/`
-- Caching Duration: 12 hours
-- Fallback Mechanism: Built-in fallback rates
-- Retry Logic: 3 attempts with exponential backoff
+## Contact & Support
+- Primary Contact: vhp327@gmail.com
+- Support Button: Mobile-responsive with collapse functionality
+- Contact Button: Integrated in landing page
 
-### Health Check System
-- Endpoint: `/api/uptime`
-- Self-ping Interval: 10 minutes
-- Uses Render's health check system
-- Environment Variable: `RENDER_EXTERNAL_URL`
+## Admin Features
+- Secure admin dashboard
+- Login system with session management
+- Analytics tracking
+- API performance monitoring
+
+## Security Features
+- Secure cookie handling with SameSite attributes
+- HTTPS enforcement in production
+- XSS protection
+- CSRF prevention
+- Rate limiting
 
 ## Environment Variables
 ```env
 EXCHANGE_RATE_API_KEY=your_api_key
 RENDER_EXTERNAL_URL=your_render_url
 NODE_ENV=production
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
 ```
 
 ## Caching Strategy
@@ -105,83 +105,15 @@ NODE_ENV=production
 - Storage: In-memory Map
 - Auto-refresh on expiry
 
-## Type System
-
-### Currency Types
+## Cookie Configuration
 ```typescript
-type Currency = 'USD' | 'EUR' | 'GBP' | 'CHF' | 'CAD' | 'JPY' | 'AUD' | 'NZD';
-
-interface CurrencyPairType {
-  from: Currency;
-  to: Currency;
+{
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  path: '/'
 }
 ```
-
-### Calculator Types
-```typescript
-interface CalculatorInput {
-  accountBalance: number;
-  riskPercentage: number;
-  stopLoss: number;
-  baseCurrency: Currency;
-  quoteCurrency: Currency;
-}
-
-interface CalculationResult {
-  positionSize: number;
-  potentialLoss: number;
-  requiredMargin: number;
-  pipValue: number;
-}
-```
-
-## Deployment
-
-### Render.com Configuration
-```yaml
-services:
-  - type: web
-    name: forex-calculator
-    env: node
-    runtime: "node:18.x"
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /api/uptime
-    plan: free
-```
-
-## SEO Optimization
-- Meta tags for social sharing
-- OpenGraph and Twitter card support
-- Google site verification ready
-- Semantic HTML structure
-- Mobile-responsive design
-
-## UI/UX Features
-- Dark theme with blue accents
-- Responsive design
-- Interactive form elements
-- Real-time calculations
-- Clear error messages
-- Loading states
-- Professional trading suggestions
-
-## Error Handling
-- API fallback mechanism
-- Type validation
-- Input validation
-- Network error handling
-- Rate limiting consideration
-- Graceful degradation
-
-## Future Enhancements
-1. Additional currency pairs
-2. Historical rate analysis
-3. Chart integration
-4. User preferences storage
-5. Advanced risk metrics
-6. PDF report generation
-7. Multiple language support
 
 ## Maintenance
 - Regular dependency updates
@@ -191,4 +123,4 @@ services:
 - Cache invalidation strategy
 
 ## Support
-For technical support or contributions, please open an issue on the repository.
+For technical support or questions, please contact vhp327@gmail.com or open an issue on the repository.

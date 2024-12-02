@@ -8,6 +8,8 @@ import { TradingScenario } from '../../types/calculator';
 import { Currency, CurrencyPairType } from '@/lib/api/types'
 import { HiMinus, HiPlus } from 'react-icons/hi'
 import { CURRENCY_PAIRS } from '@/lib/api/types';
+import { recordCalculation, incrementCalculations, incrementFallbackRates } from '@/lib/analytics-store'
+import { trackApiCall } from '@/lib/api-tracker'
 
 interface CurrencyPairOption {
   value: string;
@@ -71,23 +73,180 @@ interface FormState {
   takeProfit: string;
 }
 
-export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
+export default function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   const [formState, setFormState] = useState<FormState>({
     accountBalance: '',
     riskPercentage: '',
     stopLoss: '',
     selectedPair: 'EUR/USD',
     displayUnit: 'units',
-    leverage: '0',
-    accountCurrency: 'USD' as Currency,
+    leverage: '100',
+    accountCurrency: 'USD',
     riskDisplayMode: 'percentage',
     takeProfit: ''
   })
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [riskAmount, setRiskAmount] = useState<number>(0)
-  const [suggestions, setSuggestions] = useState<TradingSuggestion[]>([]);
+  const [riskAmount, setRiskAmount] = useState(0)
+  const [suggestions, setSuggestions] = useState<TradingSuggestion[]>([])
+
+  // Form submission handler
+  const handleSubmit = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
+    if (event) {
+      event.preventDefault()
+    }
+    
+    // Enhanced validation with specific error messages
+    const validationErrors = [];
+    if (!formState.accountBalance) validationErrors.push('Account Balance');
+    if (!formState.riskPercentage) validationErrors.push('Risk Percentage');
+    if (!formState.stopLoss) validationErrors.push('Stop Loss');
+    if (!formState.selectedPair) validationErrors.push('Currency Pair');
+    
+    if (validationErrors.length > 0) {
+      setError(`Please fill in the following required fields: ${validationErrors.join(', ')}`);
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+
+    try {
+      // Get market data with tracking and fallback handling
+      const [base, quote] = formState.selectedPair.split('/') as [Currency, Currency];
+      let marketData;
+      
+      try {
+        marketData = await trackApiCall('market-data', async () => {
+          const data = await getMarketData(base, quote);
+          if (!data || !data.rate) throw new Error('Invalid market data');
+          return data;
+        });
+      } catch (marketError) {
+        console.warn('Using fallback rates due to market data error:', marketError);
+        // Use fallback rate based on common currency pairs
+        const fallbackRates: { [key: string]: number } = {
+          'EUR/USD': 1.1000,
+          'GBP/USD': 1.2500,
+          'USD/JPY': 110.00,
+          'USD/CHF': 0.9000,
+          'AUD/USD': 0.7500,
+          'USD/CAD': 1.2500,
+          'NZD/USD': 0.7000,
+        };
+        
+        const rate = fallbackRates[formState.selectedPair] || 1.0000;
+        marketData = {
+          rate,
+          spread: rate * 0.0002,
+          volatility: rate * 0.001,
+          dailyRange: {
+            high: rate * 1.002,
+            low: rate * 0.998,
+          }
+        };
+        
+        // Track fallback rate usage
+        incrementFallbackRates();
+      }
+
+      const balance = parseFloat(formState.accountBalance);
+      const risk = parseFloat(formState.riskPercentage);
+      const stopLossPips = parseFloat(formState.stopLoss);
+      const leverage = parseFloat(formState.leverage);
+      
+      // Validate numeric inputs
+      if (isNaN(balance) || balance <= 0) throw new Error('Invalid account balance');
+      if (isNaN(risk) || risk <= 0 || risk > 100) throw new Error('Risk percentage must be between 0 and 100');
+      if (isNaN(stopLossPips) || stopLossPips <= 0) throw new Error('Invalid stop loss');
+      if (isNaN(leverage) || leverage < 0) throw new Error('Invalid leverage');
+
+      const riskAmount = balance * (risk / 100);
+      setRiskAmount(riskAmount);
+
+      // Standard lot size and pip calculations with JPY pair handling
+      const standardLotSize = 100000;
+      const pipSize = formState.selectedPair.includes('JPY') ? 0.01 : 0.0001;
+      const stopLossAmount = stopLossPips * pipSize;
+
+      // Calculate position size with safety checks and cross rate handling
+      if (stopLossAmount === 0) throw new Error('Invalid stop loss calculation');
+      
+      let positionSize;
+      const [baseCurrency, quoteCurrency] = formState.selectedPair.split('/');
+      
+      if (quoteCurrency === 'USD') {
+        // Direct USD quote (e.g., EUR/USD)
+        positionSize = (riskAmount / stopLossAmount) / marketData.rate;
+      } else if (baseCurrency === 'USD') {
+        // Inverse USD quote (e.g., USD/JPY)
+        positionSize = (riskAmount / stopLossAmount) * marketData.rate;
+      } else {
+        // Cross rate (e.g., EUR/JPY) - need to convert through USD
+        try {
+          // Get USD/quote rate for conversion
+          const usdQuoteRate = await getMarketData('USD' as Currency, quoteCurrency as Currency);
+          positionSize = (riskAmount / stopLossAmount) / usdQuoteRate.rate;
+        } catch (error) {
+          console.warn('Failed to get cross rate, using approximation:', error);
+          // Fallback: use direct conversion as approximation
+          positionSize = (riskAmount / stopLossAmount) / marketData.rate;
+        }
+      }
+
+      const lotsSize = positionSize / standardLotSize;
+
+      // Validate calculation results
+      if (!isFinite(positionSize) || positionSize <= 0) throw new Error('Invalid position size calculation');
+      
+      const marginRequired = (positionSize * marketData.rate) / leverage;
+      const pipValue = (pipSize * positionSize * marketData.rate);
+
+      // Analyze risk with correct parameters
+      const riskAnalysis = analyzeRisk(
+        balance,
+        risk,
+        stopLossPips,
+        leverage,
+        marketData.volatility
+      );
+
+      // Record calculation
+      recordCalculation(formState.selectedPair, 0);
+
+      // Format and send results with validated risk analysis
+      onCalculationComplete({
+        positionSize: formState.displayUnit === 'lots' ? lotsSize : positionSize,
+        potentialLoss: riskAmount,
+        requiredMargin: marginRequired,
+        pipValue,
+        displayUnit: formState.displayUnit,
+        leverage: formState.leverage,
+        riskAnalysis: {
+          riskRating: riskAnalysis.riskRating,
+          riskScore: Math.round(riskAnalysis.riskScore),
+          suggestions: riskAnalysis.suggestions,
+          maxRecommendedLeverage: riskAnalysis.maxRecommendedLeverage
+        },
+        accountCurrency: formState.accountCurrency
+      });
+
+    } catch (err) {
+      console.error('Calculation error:', err);
+      setError(err instanceof Error ? err.message : 'Unable to calculate position size. Please check your inputs and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [formState, onCalculationComplete]);
+
+  const handleUnitToggle = useCallback((unit: 'units' | 'lots') => {
+    if (unit === formState.displayUnit) return
+    setFormState(prev => ({ ...prev, displayUnit: unit }))
+    if (formState.accountBalance && formState.riskPercentage && formState.stopLoss && formState.selectedPair) {
+      handleSubmit()
+    }
+  }, [formState, handleSubmit])
 
   const leverageOptions = [
     { value: '0', label: 'No Leverage' },
@@ -253,95 +412,6 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
     setFormState(prev => ({ ...prev, riskDisplayMode: newMode }))
   }
 
-  const handleCalculate = async (e?: FormEvent) => {
-    e?.preventDefault();
-    
-    if (!validateInputs()) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const balance = parseFloat(formState.accountBalance);
-      const risk = parseFloat(formState.riskPercentage);
-      const stopLossPips = parseFloat(formState.stopLoss);
-      const leverageValue = parseFloat(formState.leverage);
-
-      // Calculate risk amount in account currency
-      const riskAmount = balance * (risk / 100);
-      setRiskAmount(riskAmount);
-
-      // Get market data
-      const [base, quote] = formState.selectedPair.split('/') as [Currency, Currency];
-      const marketData = await getMarketData(base, quote);
-      if (!marketData) {
-        throw new Error('Failed to fetch market data');
-      }
-
-      // Standard lot size and pip calculations
-      const standardLotSize = 100000;
-      const pipSize = formState.selectedPair.includes('JPY') ? 0.01 : 0.0001;
-      
-      // Calculate pip value (always in standard units first)
-      const pipValue = pipSize * standardLotSize * marketData.rate;
-      
-      // Calculate position size in standard units
-      const positionSizeInUnits = Math.round(riskAmount / (stopLossPips * pipValue * pipSize));
-      
-      // Convert to lots if needed (1 lot = 100,000 units)
-      const positionSizeInLots = positionSizeInUnits / standardLotSize;
-
-      // Calculate required margin based on standard units
-      const requiredMargin = leverageValue > 0 
-        ? (positionSizeInUnits * marketData.rate) / leverageValue 
-        : positionSizeInUnits * marketData.rate;
-
-      // Analyze risk
-      const riskAnalysis = analyzeRisk(
-        balance,
-        risk,
-        stopLossPips,
-        leverageValue,
-        marketData.volatility
-      );
-
-      // Use the appropriate position size based on display unit
-      const finalPositionSize = formState.displayUnit === 'lots'
-        ? Math.round(positionSizeInLots * 100) / 100  // Round to 2 decimal places for lots
-        : Math.round(positionSizeInUnits);  // Round to whole numbers for units
-
-      const results = {
-        positionSize: finalPositionSize,
-        potentialLoss: Math.round(riskAmount * 100) / 100,
-        requiredMargin: Math.round(requiredMargin * 100) / 100,
-        pipValue: Math.round(pipValue * 100000) / 100000,
-        displayUnit: formState.displayUnit,
-        leverage: formState.leverage,
-        riskAnalysis,
-        accountCurrency: formState.accountCurrency
-      };
-
-      onCalculationComplete(results);
-    } catch (error) {
-      console.error('Calculation error:', error);
-      setError('Unable to calculate position size. Please check your inputs and try again.');
-    }
-
-    setIsLoading(false);
-  };
-
-  const handleUnitToggle = (unit: 'units' | 'lots') => {
-    setFormState(prev => ({ ...prev, displayUnit: unit }))
-    handleCalculate()
-  }
-
-  const handleCurrencyChange = (currency: Currency) => {
-    setFormState(prev => ({ ...prev, accountCurrency: currency }))
-    handleCalculate()
-  }
-
   useEffect(() => {
     try {
       const scenario: TradingScenario = {
@@ -366,7 +436,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (formState.accountBalance && formState.riskPercentage && formState.stopLoss) {
-        handleCalculate();
+        handleSubmit();
       }
     }, 500); // 500ms delay
 
@@ -374,7 +444,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   }, [formState.accountBalance, formState.riskPercentage, formState.stopLoss, formState.leverage, formState.selectedPair]);
 
   return (
-    <form onSubmit={handleCalculate} className="w-full max-w-3xl mx-auto">
+    <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
       <div className="space-y-6 p-4 sm:p-6 md:p-8 bg-gray-900/50 backdrop-blur-md rounded-xl border border-gray-800/50 shadow-xl">
         {/* Grid layout for form fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -387,7 +457,7 @@ export function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
               <div className="relative w-20">
                 <select
                   value={formState.accountCurrency}
-                  onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
+                  onChange={(e) => handleInputChange('accountCurrency', e.target.value as Currency)}
                   className="w-full h-full bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-l-lg 
                     text-xs text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 
                     shadow-lg shadow-black/10 transition-all duration-200 hover:border-gray-600/50

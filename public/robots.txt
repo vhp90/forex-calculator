@@ -1,4 +1,9 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 
-Sitemap: https://your-domain.com/sitemap.xml
+# Optimize crawling
+Crawl-delay: 1
+
+
+Sitemap: https://forex-calculator.onrender.com/sitemap.xml

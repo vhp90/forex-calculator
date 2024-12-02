@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CalculatorForm } from '@/components/calculator/CalculatorForm'
+import CalculatorForm from '@/components/calculator/CalculatorForm'
 import ResultsDisplay from '@/components/calculator/ResultsDisplay'
 import RiskAnalysis from '@/components/calculator/RiskAnalysis'
 

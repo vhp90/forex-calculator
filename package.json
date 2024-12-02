@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start -p $PORT",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postbuild": "next-sitemap"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
@@ -17,15 +18,18 @@
     "@supabase/supabase-js": "^2.38.4",
     "@tailwindcss/forms": "^0.5.7",
     "autoprefixer": "^10.4.17",
+    "chart.js": "^4.4.7",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "dotenv": "^16.4.5",
     "framer-motion": "^11.0.3",
+    "jose": "^5.9.6",
     "lucide-react": "^0.330.0",
     "next": "14.0.3",
     "next-auth": "^4.24.5",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.0.1",
     "styled-components": "^6.1.8",
@@ -39,6 +43,8 @@
     "@types/react-dom": "^18.2.18",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.3",
+    "next-sitemap": "^4.2.3",
+    "sharp": "^0.33.5",
     "typescript": "^5.3.3"
   },
   "engines": {

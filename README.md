@@ -4,20 +4,27 @@ A web-based Forex risk calculator that helps traders make informed decisions abo
 
 ## Features
 
-- User Authentication
-- Risk Calculator
-- Position Size Calculations
-- Basic Dashboard
-- Calculation History
-- User Profile
+- Position Size Calculator
+  - Support for all major currency pairs
+  - Real-time exchange rate data
+  - Risk percentage calculation
+  - Stop loss analysis
+- Admin Dashboard
+  - Analytics tracking
+  - API performance monitoring
+  - Secure authentication
+- Mobile-Responsive Design
+  - Dark theme with yellow accents
+  - Collapsible support button
+  - Integrated contact system
 
 ## Tech Stack
 
 - Next.js 14
 - TypeScript
 - Tailwind CSS
-- Supabase (Database)
-- NextAuth (Authentication)
+- Exchange Rate API
+- SameSite Secure Cookies
 
 ## Getting Started
 
@@ -29,10 +36,10 @@ A web-based Forex risk calculator that helps traders make informed decisions abo
 2. Set up environment variables:
    Create a `.env.local` file with the following variables:
    ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   NEXTAUTH_SECRET=your_nextauth_secret
-   NEXTAUTH_URL=http://localhost:3000
+   EXCHANGE_RATE_API_KEY=your_api_key
+   RENDER_EXTERNAL_URL=your_render_url
+   ADMIN_USERNAME=your_admin_username
+   ADMIN_PASSWORD=your_admin_password
    ```
 
 3. Run the development server:
@@ -49,3 +56,19 @@ A web-based Forex risk calculator that helps traders make informed decisions abo
 - `/src/lib` - Utility functions and shared logic
 - `/src/types` - TypeScript type definitions
 - `/src/styles` - Global styles and Tailwind CSS config
+
+## Contact & Support
+
+For questions, technical support, or feedback, please contact vhp327@gmail.com.
+
+## Security
+
+- Secure cookie handling with SameSite attributes
+- HTTPS enforcement in production
+- XSS protection
+- CSRF prevention
+- Rate limiting
+
+## License
+
+This project is proprietary and not open for redistribution.
