@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky install",
+    "prepare": "if [ -z \"$RENDER\" ]; then husky install; fi",
     "postinstall": "npm run prepare",
     "sitemap": "next-sitemap",
     "pre-commit": "lint-staged"
