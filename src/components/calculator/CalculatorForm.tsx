@@ -114,15 +114,22 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
       event.preventDefault()
     }
     
-    // Enhanced validation with specific error messages
+    // Only validate and show errors if there are actual values entered
+    const hasValues = formState.accountBalance || formState.riskPercentage || formState.stopLoss;
     const validationErrors = [];
-    if (!formState.accountBalance) validationErrors.push('Account Balance');
-    if (!formState.riskPercentage) validationErrors.push('Risk Percentage');
-    if (!formState.stopLoss) validationErrors.push('Stop Loss');
-    if (!formState.selectedPair) validationErrors.push('Currency Pair');
     
-    if (validationErrors.length > 0) {
-      setError(`Please fill in the following required fields: ${validationErrors.join(', ')}`);
+    if (hasValues) {
+      if (!formState.accountBalance) validationErrors.push('Account Balance');
+      if (!formState.riskPercentage) validationErrors.push('Risk Percentage');
+      if (!formState.stopLoss) validationErrors.push('Stop Loss');
+      if (!formState.selectedPair) validationErrors.push('Currency Pair');
+      
+      if (validationErrors.length > 0) {
+        setError(`Please fill in the following required fields: ${validationErrors.join(', ')}`);
+        return;
+      }
+    } else {
+      setError('');
       return;
     }
 
@@ -162,9 +169,10 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
       let positionSize: number;
       const [baseCurrency, quoteCurrency] = formState.selectedPair.split('/') as [Currency, Currency];
       
+      // Calculate position size in base currency units
       if (quoteCurrency === 'USD') {
         // Direct USD quote (e.g., EUR/USD)
-        positionSize = (riskAmount / stopLossAmount) / marketData.rate;
+        positionSize = (riskAmount / stopLossAmount);
       } else if (baseCurrency === 'USD') {
         // Inverse USD quote (e.g., USD/JPY)
         positionSize = (riskAmount / stopLossAmount) * marketData.rate;
@@ -175,18 +183,19 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
           if (!usdQuoteRate || !usdQuoteRate.rate) {
             throw new Error('Failed to get USD quote rate');
           }
-          positionSize = (riskAmount / stopLossAmount) / usdQuoteRate.rate;
+          positionSize = (riskAmount / stopLossAmount) * (marketData.rate / usdQuoteRate.rate);
         } catch (error) {
           console.warn('Failed to get cross rate, using approximation:', error);
-          // Fallback: use direct conversion as approximation
-          positionSize = (riskAmount / stopLossAmount) / marketData.rate;
+          positionSize = (riskAmount / stopLossAmount);
         }
       }
 
+      // Convert to lots if needed
       const lotsSize = positionSize / standardLotSize;
+      const finalPositionSize = formState.displayUnit === 'lots' ? lotsSize : positionSize;
 
       // Validate calculation results
-      if (!isFinite(positionSize) || positionSize <= 0) {
+      if (!isFinite(finalPositionSize) || finalPositionSize <= 0) {
         throw new Error('Invalid position size calculation');
       }
 
@@ -204,7 +213,7 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
         accountBalance: balance,
         accountCurrency: formState.accountCurrency,
         riskAmount: riskAmount,
-        positionSize: positionSize,
+        positionSize: finalPositionSize,
         stopLoss: stopLossPips,
         takeProfit: parseFloat(formState.takeProfit) || 0,
       };
@@ -213,11 +222,11 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
 
       // Update state and notify parent
       const results: CalculationResult = {
-        positionSize,
+        positionSize: finalPositionSize,
         positionSizeLots: lotsSize,
         potentialLoss: riskAmount,
-        requiredMargin: positionSize * marketData.rate / leverage,
-        pipValue: (positionSize * pipSize) * marketData.rate,
+        requiredMargin: finalPositionSize * marketData.rate / leverage,
+        pipValue: (finalPositionSize * pipSize) * marketData.rate,
         marketData,
         riskAnalysis: {
           riskRating: riskAnalysis.riskRating,
@@ -762,6 +771,20 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
             </p>
           </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <p className="text-amber-400 text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        {/* Alert message */}
+        {alertMessage && (
+          <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <p className="text-blue-400 text-sm font-medium">{alertMessage}</p>
+          </div>
+        )}
 
         {/* Trading Suggestions */}
         <div className="mt-8 space-y-3">

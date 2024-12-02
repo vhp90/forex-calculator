@@ -8,7 +8,7 @@
     "start": "next start -p $PORT",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi",
+    "prepare": "husky install",
     "sitemap": "next-sitemap",
     "pre-commit": "lint-staged"
   },
@@ -45,6 +45,8 @@
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",
     "@types/react-dom": "^18.2.18",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.3",
     "husky": "^9.1.7",
@@ -57,7 +59,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "npm run typecheck"
+      "eslint --fix"
     ]
   }
 }

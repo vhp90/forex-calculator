@@ -5,16 +5,23 @@ import { logError } from '../analytics-store';
 const EXCHANGE_RATE_API_KEY = process.env.EXCHANGE_RATE_API_KEY;
 const CACHE_TAG = 'exchange-rates';
 const CACHE_DURATION = 5 * 60; // 5 minutes
+const BASE_URL = 'https://v6.exchangerate-api.com/v6';
 
 async function fetchExchangeRates(base: Currency): Promise<ExchangeRateAPIResponse> {
   if (!EXCHANGE_RATE_API_KEY) {
     throw new Error('Exchange rate API key not configured');
   }
 
-  const url = `https://v6.exchangerate-api.com/v6/${EXCHANGE_RATE_API_KEY}/latest/${base}`;
-  
+  const url = `${BASE_URL}/${EXCHANGE_RATE_API_KEY}/latest/${base}`;
+
   try {
-    const response = await fetch(url, { next: { tags: [CACHE_TAG] } });
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'force-cache'
+    });
+
     if (!response.ok) {
       throw new Error(`Exchange rate API error: ${response.status}`);
     }
@@ -31,12 +38,13 @@ export async function getExchangeRate(from: Currency, to: Currency): Promise<Exc
       try {
         const data = await fetchExchangeRates(from);
         const rate = data.rates[to];
-        
+
         if (!rate) {
           throw new Error(`Rate not found for ${from}/${to}`);
         }
 
-        return {
+        const response: ExchangeRateResponse = {
+          source: 'api',
           rate,
           spread: rate * 0.0002, // 0.02% spread
           volatility: rate * 0.001, // 0.1% volatility
@@ -45,12 +53,20 @@ export async function getExchangeRate(from: Currency, to: Currency): Promise<Exc
             low: rate * 0.998, // 0.2% below current rate
           }
         };
+        return response;
       } catch (error) {
         console.warn('Using fallback rates:', error);
-        // Calculate cross rate using fallback rates
-        const fallbackRate = FALLBACK_RATES[to] / FALLBACK_RATES[from];
-        
-        return {
+        // Use fallback rates and ensure both currencies exist
+        const fromRate = FALLBACK_RATES[from];
+        const toRate = FALLBACK_RATES[to];
+
+        if (fromRate === undefined || toRate === undefined) {
+          throw new Error(`Fallback rate not found for ${from} or ${to}`);
+        }
+
+        const fallbackRate = toRate / fromRate;
+        const response: ExchangeRateResponse = {
+          source: 'fallback',
           rate: fallbackRate,
           spread: fallbackRate * 0.0002,
           volatility: fallbackRate * 0.001,
@@ -59,6 +75,7 @@ export async function getExchangeRate(from: Currency, to: Currency): Promise<Exc
             low: fallbackRate * 0.998,
           }
         };
+        return response;
       }
     },
     [`exchange-rate-${from}-${to}`],
@@ -69,6 +86,41 @@ export async function getExchangeRate(from: Currency, to: Currency): Promise<Exc
   );
 
   return getCachedRate();
+}
+
+export async function getExchangeRateDirect(
+  fromCurrency: string,
+  toCurrency: string
+): Promise<ExchangeRateResponse> {
+  if (!EXCHANGE_RATE_API_KEY) {
+    throw new Error('Exchange rate API key not configured');
+  }
+
+  try {
+    const response = await fetch(
+      `${BASE_URL}/${EXCHANGE_RATE_API_KEY}/pair/${fromCurrency}/${toCurrency}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'force-cache'
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch exchange rate: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      rate: data.conversion_rate,
+      source: 'api',
+      timestamp: Date.now()
+    };
+  } catch (error) {
+    console.error('Error fetching exchange rate:', error);
+    throw error;
+  }
 }
 
 export { fetchExchangeRates };

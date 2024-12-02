@@ -73,9 +73,11 @@ async function handler(request: Request) {
       );
     }
 
-    const rate = await getExchangeRate(from, to);
-    await updateStats('api');
-    return NextResponse.json(rate);
+    const rateData = await getExchangeRate(from, to);
+    // Update stats based on the data source
+    await updateStats(rateData.source === 'api' ? 'api' : 'cache');
+    
+    return NextResponse.json(rateData);
   } catch (error) {
     console.error('Error fetching exchange rate:', error);
     return NextResponse.json(

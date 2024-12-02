@@ -1,4 +1,5 @@
 import { Currency } from './api/types';
+import { unstable_cache } from 'next/cache';
 
 export interface CalcMetric {
   timestamp: number
@@ -34,208 +35,14 @@ interface AnalyticsStats {
   totalApiCalls: number;
   totalErrors: number;
   totalFallbackRates: number;
+  apiEndpoints: { [endpoint: string]: { totalCalls: number, errors: { [error: string]: number }, avgResponseTime: number } }
 }
 
 export class AnalyticsStore {
-  private static instance: AnalyticsStore
-  private visits: VisitMetric[] = []
-  private apiMetrics: ApiMetric[] = []
-  private calcMetrics: CalcMetric[] = []
-  private errors: ErrorMetric[] = []
-  private readonly maxAge = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-  private readonly maxRecordsPerHour = 1000 // Limit records per hour
-  private readonly maxTotalRecords = 10000 // Total records limit
-  private lastCleanup = Date.now()
-  private readonly cleanupInterval = 5 * 60 * 1000 // 5 minutes
+  private static instance: AnalyticsStore;
+  private stats: AnalyticsStats;
 
-  private constructor() {
-    // Run cleanup every 5 minutes
-    setInterval(() => this.cleanup(), this.cleanupInterval)
-  }
-
-  public static getInstance(): AnalyticsStore {
-    if (!AnalyticsStore.instance) {
-      AnalyticsStore.instance = new AnalyticsStore()
-    }
-    return AnalyticsStore.instance
-  }
-
-  private cleanup() {
-    const now = Date.now()
-    // Only run cleanup if enough time has passed
-    if (now - this.lastCleanup < this.cleanupInterval) {
-      return
-    }
-    this.lastCleanup = now
-    
-    const threshold = now - this.maxAge
-
-    // Helper function to limit records per hour and total
-    const limitRecords = <T extends { timestamp: number }>(records: T[]): T[] => {
-      // First, remove old records
-      records = records.filter(r => r.timestamp > threshold)
-
-      // Then, group by hour
-      const hourlyGroups = new Map<number, T[]>()
-      records.forEach(record => {
-        const hour = Math.floor(record.timestamp / (60 * 60 * 1000))
-        if (!hourlyGroups.has(hour)) {
-          hourlyGroups.set(hour, [])
-        }
-        hourlyGroups.get(hour)!.push(record)
-      })
-
-      // Limit records per hour and flatten
-      return Array.from(hourlyGroups.values())
-        .map(group => group.slice(-this.maxRecordsPerHour))
-        .flat()
-        .slice(-this.maxTotalRecords)
-    }
-
-    this.visits = limitRecords(this.visits)
-    this.apiMetrics = limitRecords(this.apiMetrics)
-    this.calcMetrics = limitRecords(this.calcMetrics)
-    this.errors = limitRecords(this.errors)
-  }
-
-  recordVisit(path: string) {
-    this.visits.push({
-      timestamp: Date.now(),
-      path
-    })
-    this.maybeTriggerCleanup()
-  }
-
-  trackApiCall(endpoint: string, success: boolean, duration: number) {
-    this.apiMetrics.push({
-      endpoint,
-      success,
-      duration,
-      timestamp: Date.now()
-    })
-    this.maybeTriggerCleanup()
-  }
-
-  recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false) {
-    this.calcMetrics.push({
-      timestamp: Date.now(),
-      currencyPair,
-      duration,
-      usedFallbackRate
-    })
-    this.maybeTriggerCleanup()
-  }
-
-  incrementErrors(endpoint: string, error: string) {
-    this.errors.push({
-      endpoint,
-      error,
-      timestamp: Date.now()
-    })
-    this.maybeTriggerCleanup()
-  }
-
-  private maybeTriggerCleanup() {
-    const totalRecords = this.visits.length + this.apiMetrics.length + this.calcMetrics.length + this.errors.length
-    if (totalRecords > this.maxTotalRecords) {
-      this.cleanup()
-    }
-  }
-
-  getStats() {
-    const now = Date.now()
-    const hourAgo = now - 60 * 60 * 1000 // 1 hour ago
-
-    // Get recent metrics
-    const recentMetrics = this.calcMetrics.filter(m => m.timestamp > hourAgo)
-    const recentApiCalls = this.apiMetrics.filter(m => m.timestamp > hourAgo)
-
-    // Calculate API endpoints usage
-    const apiEndpoints: Record<string, number> = {}
-    recentApiCalls.forEach(call => {
-      apiEndpoints[call.endpoint] = (apiEndpoints[call.endpoint] || 0) + 1
-    })
-
-    // Calculate currency pairs usage
-    const currencyPairs: Record<string, number> = {}
-    recentMetrics.forEach(calc => {
-      currencyPairs[calc.currencyPair] = (currencyPairs[calc.currencyPair] || 0) + 1
-    })
-
-    // Calculate fallback rate usage
-    const fallbackRateUsage = recentMetrics.reduce((acc, curr) => {
-      if (curr.usedFallbackRate) acc.count++
-      return acc
-    }, { count: 0, total: recentMetrics.length })
-
-    // Calculate hourly visits
-    const hourlyVisits = new Array(24).fill(0)
-    this.visits.forEach(visit => {
-      const hour = new Date(visit.timestamp).getHours()
-      hourlyVisits[hour]++
-    })
-
-    // Calculate average response time
-    const avgResponseTime = recentApiCalls.length > 0
-      ? Math.round(recentApiCalls.reduce((acc, curr) => acc + curr.duration, 0) / recentApiCalls.length)
-      : 0
-
-    // Calculate average calculation time
-    const avgCalcTime = recentMetrics.length > 0
-      ? Math.round(recentMetrics.reduce((acc, curr) => acc + curr.duration, 0) / recentMetrics.length)
-      : 0
-
-    return {
-      totalVisits: this.visits.length,
-      totalCalculations: this.calcMetrics.length,
-      apiSuccessRate: recentApiCalls.length > 0
-        ? `${(recentApiCalls.filter(m => m.success).length / recentApiCalls.length * 100).toFixed(1)}%`
-        : '100%',
-      avgResponseTime: `${avgResponseTime}ms`,
-      avgCalculationTime: `${avgCalcTime}ms`,
-      memoryUsage: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`,
-      hourlyVisits,
-      apiEndpoints,
-      currencyPairs,
-      fallbackRateUsage: {
-        count: fallbackRateUsage.count,
-        percentage: fallbackRateUsage.total > 0
-          ? (fallbackRateUsage.count / fallbackRateUsage.total * 100).toFixed(1)
-          : '0'
-      }
-    }
-  }
-}
-
-class AnalyticsStoreStats {
-  private stats: AnalyticsStats = {
-    visits: [],
-    calculations: [],
-    api: [],
-    errors: [],
-    totalCalculations: 0,
-    totalApiCalls: 0,
-    totalErrors: 0,
-    totalFallbackRates: 0
-  }
-
-  incrementCalculations() {
-    this.stats.totalCalculations++
-  }
-
-  incrementApiCalls() {
-    this.stats.totalApiCalls++
-  }
-
-  incrementErrors() {
-    this.stats.totalErrors++
-  }
-
-  incrementFallbackRates() {
-    this.stats.totalFallbackRates++
-  }
-
-  resetStats() {
+  constructor() {
     this.stats = {
       visits: [],
       calculations: [],
@@ -244,17 +51,111 @@ class AnalyticsStoreStats {
       totalCalculations: 0,
       totalApiCalls: 0,
       totalErrors: 0,
-      totalFallbackRates: 0
-    }
+      totalFallbackRates: 0,
+      apiEndpoints: {}
+    };
   }
 
-  getStats() {
-    return { ...this.stats }
+  static getInstance(): AnalyticsStore {
+    if (!AnalyticsStore.instance) {
+      AnalyticsStore.instance = new AnalyticsStore();
+    }
+    return AnalyticsStore.instance;
+  }
+
+  public async setStats(newStats: AnalyticsStats): Promise<void> {
+    this.stats = newStats;
+    const updateStats = unstable_cache(
+      async () => newStats,
+      ['analytics-stats'],
+      { revalidate: 3600 }
+    );
+    await updateStats();
+  }
+
+  public async getStats(): Promise<AnalyticsStats> {
+    return this.stats;
+  }
+
+  async recordVisit(path: string): Promise<void> {
+    await this.updateStats(stats => {
+      const visit: VisitMetric = {
+        timestamp: Date.now(),
+        path
+      };
+      stats.visits.push(visit);
+      this.cleanup(stats);
+      return stats;
+    });
+  }
+
+  async trackApiCall(endpoint: string, success: boolean, duration: number): Promise<void> {
+    await this.updateStats(stats => {
+      const metric: ApiMetric = {
+        timestamp: Date.now(),
+        endpoint,
+        duration,
+        success
+      };
+      stats.api.push(metric);
+      stats.totalApiCalls++;
+      this.cleanup(stats);
+      return stats;
+    });
+  }
+
+  async recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false): Promise<void> {
+    await this.updateStats(stats => {
+      const calc: CalcMetric = {
+        timestamp: Date.now(),
+        currencyPair,
+        duration,
+        usedFallbackRate
+      };
+      stats.calculations.push(calc);
+      stats.totalCalculations++;
+      if (usedFallbackRate) {
+        stats.totalFallbackRates++;
+      }
+      this.cleanup(stats);
+      return stats;
+    });
+  }
+
+  async logError(endpoint: string, error: string): Promise<void> {
+    await this.updateStats(stats => {
+      const errorMetric: ErrorMetric = {
+        timestamp: Date.now(),
+        endpoint,
+        error
+      };
+      stats.errors.push(errorMetric);
+      stats.totalErrors++;
+      this.cleanup(stats);
+      return stats;
+    });
+  }
+
+  private cleanup(stats: AnalyticsStats): void {
+    const now = Date.now();
+    const hourAgo = now - 24 * 60 * 60 * 1000;
+
+    // Remove old records
+    stats.visits = stats.visits.filter(v => v.timestamp > hourAgo);
+    stats.calculations = stats.calculations.filter(c => c.timestamp > hourAgo);
+    stats.api = stats.api.filter(a => a.timestamp > hourAgo);
+    stats.errors = stats.errors.filter(e => e.timestamp > hourAgo);
+  }
+
+  private async updateStats(updateFn: (stats: AnalyticsStats) => AnalyticsStats | Promise<AnalyticsStats>): Promise<void> {
+    const stats = await this.getStats();
+    const updatedStats = await updateFn(stats);
+    await this.setStats(updatedStats);
   }
 }
 
-const analyticsStore = AnalyticsStore.getInstance()
-const analyticsStoreStats = new AnalyticsStoreStats()
+// Export a singleton instance
+export const analyticsStore = AnalyticsStore.getInstance();
 
 // Export instance methods
 export function recordVisit(path: string): void {
@@ -270,32 +171,29 @@ export function recordCalculation(currencyPair: string, duration: number, usedFa
 }
 
 export function logError(endpoint: string, error: string): void {
-  analyticsStore.incrementErrors(endpoint, error);
+  analyticsStore.logError(endpoint, error);
 }
 
-export function getStats(): AnalyticsStats {
-  return analyticsStoreStats.getStats();
+export async function incrementErrorCount(endpoint: string, error: string) {
+  const stats = await getStats();
+  const endpointStats = stats.apiEndpoints[endpoint] || {
+    totalCalls: 0,
+    errors: {},
+    avgResponseTime: 0
+  };
+  
+  endpointStats.errors[error] = (endpointStats.errors[error] || 0) + 1;
+  stats.apiEndpoints[endpoint] = endpointStats;
+  
+  await updateStats(stats);
 }
 
-// Export stats methods
-export function incrementCalculations(): void {
-  analyticsStoreStats.incrementCalculations();
+export function getStats(): Promise<AnalyticsStats> {
+  return analyticsStore.getStats();
 }
 
-export function incrementApiCalls(): void {
-  analyticsStoreStats.incrementApiCalls();
-}
-
-export function incrementErrorCount(): void {
-  analyticsStoreStats.incrementErrors();
-}
-
-export function incrementFallbackRates(): void {
-  analyticsStoreStats.incrementFallbackRates();
-}
-
-export function resetAnalyticsStoreStats(): void {
-  analyticsStoreStats.resetStats();
+export async function updateStats(stats: AnalyticsStats): Promise<void> {
+  await analyticsStore.setStats(stats);
 }
 
 // Higher-order function for API tracking
@@ -312,5 +210,3 @@ export function withApiTracking(handler: Function): Function {
     }
   };
 }
-
-export { analyticsStore };

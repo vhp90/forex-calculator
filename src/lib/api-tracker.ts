@@ -1,90 +1,32 @@
-import { AnalyticsStore } from './analytics-store'
-import { incrementErrorCount } from './analytics-store'
-
-interface ApiEndpointStats {
-  calls: number
-  cacheHits: number
-  lastUpdate: number | null
-  lastWeekActivity: Array<{
-    timestamp: number
-    source: 'cache' | 'api'
-  }>
-}
-
-const endpointStats: Record<string, ApiEndpointStats> = {}
-
-// Initialize stats for an endpoint if not exists
-function initEndpointStats(endpoint: string) {
-  if (!endpointStats[endpoint]) {
-    endpointStats[endpoint] = {
-      calls: 0,
-      cacheHits: 0,
-      lastUpdate: null,
-      lastWeekActivity: []
-    }
-  }
-}
-
-// Clean up old activity entries (older than 1 week)
-function cleanupOldActivity() {
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  Object.keys(endpointStats).forEach(endpoint => {
-    endpointStats[endpoint].lastWeekActivity = endpointStats[endpoint].lastWeekActivity.filter(
-      activity => activity.timestamp > weekAgo
-    )
-  })
-}
-
-// Run cleanup every hour
-setInterval(cleanupOldActivity, 60 * 60 * 1000)
-
 import { NextRequest, NextResponse } from 'next/server';
-import { trackApiCall as analyticsTrackApiCall } from './analytics-store';
+import { trackApiCall as analyticsTrackApiCall, logError as analyticsLogError } from './analytics-store';
 
 type RouteHandler = (request: Request | NextRequest, ...args: any[]) => Promise<Response | NextResponse>;
+type ApiHandler = (...args: any[]) => Promise<any>;
 
-export const withApiTracking = (endpoint: string, handler: (request: Request | NextRequest, ...args: unknown[]) => Promise<Response | NextResponse>): typeof handler => {
-  return async (request: Request | NextRequest, ...args: unknown[]) => {
+export function logApiCall(endpoint: string, duration: number): void {
+  analyticsTrackApiCall(endpoint, true, duration);
+}
+
+export function logError(endpoint: string, error: string): void {
+  analyticsLogError(endpoint, error);
+}
+
+export function withApiTracking(endpoint: string, handler: ApiHandler): ApiHandler {
+  return async (...args: any[]) => {
     const startTime = Date.now();
     try {
-      const response = await handler(request, ...args);
-      analyticsTrackApiCall(endpoint, response.ok, Date.now() - startTime);
-      return response;
+      const result = await handler(...args);
+      await logApiCall(endpoint, Date.now() - startTime);
+      return result;
     } catch (error) {
-      analyticsTrackApiCall(endpoint, false, Date.now() - startTime);
+      await logError(endpoint, error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
   };
-};
-
-export async function withApiTrackingOriginal<T>(
-  endpoint: string, 
-  fn: () => Promise<T>,
-  source: 'cache' | 'api' = 'api'
-): Promise<T> {
-  initEndpointStats(endpoint)
-  const stats = endpointStats[endpoint]
-  const now = Date.now()
-
-  try {
-    const result = await fn()
-    
-    // Update stats
-    if (source === 'cache') {
-      stats.cacheHits++
-    }
-    stats.calls++
-    stats.lastUpdate = now
-    stats.lastWeekActivity.push({ timestamp: now, source })
-
-    return result
-  } catch (error) {
-    incrementErrorCount();
-    throw error
-  }
 }
 
-export function getApiStats() {
-  cleanupOldActivity()
-  return endpointStats
+// Export a higher-order function for route handlers
+export function withRouteTracking(endpoint: string, handler: RouteHandler): RouteHandler {
+  return withApiTracking(endpoint, handler) as RouteHandler;
 }

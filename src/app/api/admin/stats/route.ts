@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { unstable_cache } from 'next/cache'
 import { withApiTracking } from '@/lib/api-tracker'
 import type { VisitMetric, CalcMetric, ApiMetric, ErrorMetric } from '@/lib/analytics-store'
+import { validateAdminRequest } from '@/app/api/auth/validate';
 
 // Reuse the same cache key as the exchange rates route
 const getExchangeRateStats = unstable_cache(
@@ -24,20 +25,13 @@ const getExchangeRateStats = unstable_cache(
   }
 );
 
-async function handler(request: Request) {
+export async function GET(request: Request) {
   try {
-    // Check for admin session cookie
-    const cookieStore = cookies();
-    const sessionCookie = cookieStore.get('admin_session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const isAdmin = await validateAdminRequest();
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get analytics stats
     const stats = await getStats();
     const exchangeRateStats = await getExchangeRateStats();
 
@@ -96,5 +90,3 @@ async function handler(request: Request) {
     );
   }
 }
-
-export const GET = withApiTracking('/api/admin/stats', handler);
