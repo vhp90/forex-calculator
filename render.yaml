@@ -3,7 +3,7 @@ services:
     name: forex-calculator
     env: node
     runtime: "node:18.x"
-    buildCommand: npm install && npm run build
+    buildCommand: chmod +x render-build.sh && ./render-build.sh
     startCommand: npm start
     autoDeploy: true
     envVars:
@@ -15,5 +15,10 @@ services:
         sync: false
       - key: PORT
         value: "10000"
+      - key: NEXT_PUBLIC_BASE_URL
+        fromService:
+          type: web
+          name: forex-calculator
+          envVarKey: RENDER_EXTERNAL_URL
     healthCheckPath: /api/health
     plan: free
