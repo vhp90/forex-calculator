@@ -1,3 +1,5 @@
+import { Currency } from './api/types';
+
 export interface CalcMetric {
   timestamp: number
   currencyPair: string
@@ -17,6 +19,12 @@ export interface VisitMetric {
   path: string
 }
 
+export interface ErrorMetric {
+  timestamp: number
+  endpoint: string
+  error: string
+}
+
 interface AnalyticsStats {
   calculations: number
   apiCalls: number
@@ -24,11 +32,12 @@ interface AnalyticsStats {
   fallbackRates: number
 }
 
-class AnalyticsStore {
+export class AnalyticsStore {
   private static instance: AnalyticsStore
   private visits: VisitMetric[] = []
   private apiMetrics: ApiMetric[] = []
   private calcMetrics: CalcMetric[] = []
+  private errors: ErrorMetric[] = []
   private readonly maxAge = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
   private readonly maxRecordsPerHour = 1000 // Limit records per hour
   private readonly maxTotalRecords = 10000 // Total records limit
@@ -82,6 +91,7 @@ class AnalyticsStore {
     this.visits = limitRecords(this.visits)
     this.apiMetrics = limitRecords(this.apiMetrics)
     this.calcMetrics = limitRecords(this.calcMetrics)
+    this.errors = limitRecords(this.errors)
   }
 
   recordVisit(path: string) {
@@ -92,12 +102,12 @@ class AnalyticsStore {
     this.maybeTriggerCleanup()
   }
 
-  recordApiCall(endpoint: string, duration: number, success: boolean) {
+  trackApiCall(endpoint: string, success: boolean, duration: number) {
     this.apiMetrics.push({
-      timestamp: Date.now(),
       endpoint,
+      success,
       duration,
-      success
+      timestamp: Date.now()
     })
     this.maybeTriggerCleanup()
   }
@@ -112,8 +122,17 @@ class AnalyticsStore {
     this.maybeTriggerCleanup()
   }
 
+  incrementErrors(endpoint: string, error: string) {
+    this.errors.push({
+      endpoint,
+      error,
+      timestamp: Date.now()
+    })
+    this.maybeTriggerCleanup()
+  }
+
   private maybeTriggerCleanup() {
-    const totalRecords = this.visits.length + this.apiMetrics.length + this.calcMetrics.length
+    const totalRecords = this.visits.length + this.apiMetrics.length + this.calcMetrics.length + this.errors.length
     if (totalRecords > this.maxTotalRecords) {
       this.cleanup()
     }
@@ -226,16 +245,32 @@ const analyticsStore = AnalyticsStore.getInstance()
 const analyticsStoreStats = new AnalyticsStoreStats()
 
 // Export instance methods
-export const recordVisit = (path: string) => analyticsStore.recordVisit(path)
-export const recordApiCall = (endpoint: string, duration: number, success: boolean) => 
-  analyticsStore.recordApiCall(endpoint, duration, success)
-export const recordCalculation = (currencyPair: string, duration: number, usedFallbackRate: boolean = false) => 
-  analyticsStore.recordCalculation(currencyPair, duration, usedFallbackRate)
-export const getStats = () => analyticsStore.getStats()
+export const recordVisit = (path: string) => analyticsStore.recordVisit(path);
+export const trackApiCall = (endpoint: string, success: boolean, duration: number) => analyticsStore.trackApiCall(endpoint, success, duration);
+export const recordCalculation = (currencyPair: string, duration: number, usedFallbackRate: boolean = false) => analyticsStore.recordCalculation(currencyPair, duration, usedFallbackRate);
+export const logError = (endpoint: string, error: string) => analyticsStore.incrementErrors(endpoint, error);
+export const getStats = () => analyticsStore.getStats();
 
 // Export stats methods
-export const incrementCalculations = () => analyticsStoreStats.incrementCalculations()
-export const incrementApiCalls = () => analyticsStoreStats.incrementApiCalls()
-export const incrementErrors = () => analyticsStoreStats.incrementErrors()
-export const incrementFallbackRates = () => analyticsStoreStats.incrementFallbackRates()
-export const resetAnalyticsStoreStats = () => analyticsStoreStats.resetStats()
+export const incrementCalculations = () => analyticsStoreStats.incrementCalculations();
+export const incrementApiCalls = () => analyticsStoreStats.incrementApiCalls();
+export const incrementErrorCount = () => analyticsStoreStats.incrementErrors();
+export const incrementFallbackRates = () => analyticsStoreStats.incrementFallbackRates();
+export const resetAnalyticsStoreStats = () => analyticsStoreStats.resetStats();
+
+// Higher-order function for API tracking
+export const withApiTracking = (handler: Function) => {
+  return async (...args: any[]) => {
+    const startTime = Date.now();
+    try {
+      const result = await handler(...args);
+      analyticsStore.trackApiCall(args[0]?.url || 'unknown', true, Date.now() - startTime);
+      return result;
+    } catch (error) {
+      analyticsStore.trackApiCall(args[0]?.url || 'unknown', false, Date.now() - startTime);
+      throw error;
+    }
+  };
+};
+
+export { analyticsStore };

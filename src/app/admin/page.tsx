@@ -37,6 +37,16 @@ interface Stats {
     count: number
     percentage: string
   }
+  exchangeRateStats: {
+    apiCalls: number
+    cacheHits: number
+    totalFetches: number
+    lastUpdate: number | null
+    lastWeekFetches: Array<{
+      timestamp: number
+      source: 'cache' | 'api'
+    }>
+  }
 }
 
 const initialStats: Stats = {
@@ -52,6 +62,13 @@ const initialStats: Stats = {
   fallbackRateUsage: {
     count: 0,
     percentage: '0'
+  },
+  exchangeRateStats: {
+    apiCalls: 0,
+    cacheHits: 0,
+    totalFetches: 0,
+    lastUpdate: 0,
+    lastWeekFetches: []
   }
 }
 
@@ -78,7 +95,14 @@ export default function AdminDashboard() {
           ...data,
           apiEndpoints: data.apiEndpoints || {},
           currencyPairs: data.currencyPairs || {},
-          fallbackRateUsage: data.fallbackRateUsage || { count: 0, percentage: '0' }
+          fallbackRateUsage: data.fallbackRateUsage || { count: 0, percentage: '0' },
+          exchangeRateStats: data.exchangeRateStats || {
+            apiCalls: 0,
+            cacheHits: 0,
+            totalFetches: 0,
+            lastUpdate: 0,
+            lastWeekFetches: []
+          }
         })
         setLastUpdated(new Date())
         setError('')
@@ -201,6 +225,56 @@ export default function AdminDashboard() {
           )}
         </div>
 
+        {/* Exchange Rate Stats */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+            Exchange Rate Stats
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+              <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">API Calls</h3>
+              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                {stats.exchangeRateStats.apiCalls}
+              </p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+              <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">Cache Hits</h3>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {stats.exchangeRateStats.cacheHits}
+              </p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Total Fetches: {stats.exchangeRateStats.totalFetches}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Last Update: {stats.exchangeRateStats.lastUpdate 
+                ? new Date(stats.exchangeRateStats.lastUpdate).toLocaleString() 
+                : 'Never'}
+            </p>
+          </div>
+          <div className="mt-4">
+            <h3 className="text-lg font-medium mb-2 text-gray-900 dark:text-white">Last Week's Activity</h3>
+            <div className="space-y-2">
+              {stats.exchangeRateStats.lastWeekFetches.map((fetch, index) => (
+                <div key={index} className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600 dark:text-gray-300">
+                    {new Date(fetch.timestamp).toLocaleString()}
+                  </span>
+                  <span className={`px-2 py-1 rounded ${
+                    fetch.source === 'cache' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' 
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100'
+                  }`}>
+                    {fetch.source.toUpperCase()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Hourly Visits Chart */}
         <div className="p-6 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg shadow-black/10">
           <h2 className="text-2xl font-semibold text-blue-400 mb-4">Hourly Visits</h2>
@@ -293,7 +367,14 @@ export default function AdminDashboard() {
   )
 }
 
-function StatCard({ title, value, trend, trendColor = 'text-gray-500' }) {
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  trend?: string;
+  trendColor?: string;
+}
+
+function StatCard({ title, value, trend, trendColor = 'text-gray-500' }: StatCardProps) {
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
       <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{title}</h3>
