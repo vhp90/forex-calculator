@@ -50,12 +50,12 @@ const updateStats = unstable_cache(
     stats.lastWeekFetches.push({ timestamp: now, source });
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     stats.lastWeekFetches = stats.lastWeekFetches.filter(fetch => fetch.timestamp > weekAgo);
-    
+
     return stats;
   },
   ['exchange-rate-stats-update'],
   {
-    revalidate: 604800, // 1 week in seconds
+    revalidate: 0, // Don't cache updates
     tags: ['exchange-rate-stats']
   }
 );
