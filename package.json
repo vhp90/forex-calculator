@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && next-sitemap",
+    "build": "next build",
     "start": "next start -p $PORT",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi",
+    "sitemap": "next-sitemap",
     "pre-commit": "lint-staged"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "lucide-react": "^0.330.0",
     "next": "14.0.3",
     "next-auth": "^4.24.5",
+    "next-sitemap": "^4.2.3",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
@@ -47,7 +49,6 @@
     "eslint-config-next": "14.0.3",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
-    "next-sitemap": "^4.2.3",
     "sharp": "^0.33.5",
     "typescript": "^5.3.3"
   },
