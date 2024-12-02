@@ -8,7 +8,7 @@ interface ResultsDisplayProps {
   requiredMargin: number
   pipValue: number
   displayUnit: 'units' | 'lots'
-  leverage: string
+  leverage: number
   accountCurrency: string
 }
 

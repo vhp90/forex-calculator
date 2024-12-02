@@ -3,62 +3,43 @@
 import { useState, useEffect, useCallback, FormEvent } from 'react'
 import { getMarketData } from '@/lib/market-data'
 import { analyzeRisk } from '@/lib/risk-analysis'
-import { getTradingSuggestions, TradingSuggestion } from '../../lib/trading-suggestions';
-import { TradingScenario } from '../../types/calculator';
-import { Currency, CurrencyPairType } from '@/lib/api/types'
+import { getTradingSuggestions } from '@/lib/trading-suggestions'
+import { Currency, ExchangeRateResponse } from '@/lib/api/types'
 import { HiMinus, HiPlus } from 'react-icons/hi'
-import { CURRENCY_PAIRS } from '@/lib/api/types';
-import { recordCalculation, incrementCalculations, incrementFallbackRates } from '@/lib/analytics-store'
-import { trackApiCall } from '@/lib/api-tracker'
+import { CURRENCY_PAIRS } from '@/lib/api/types'
+import { recordCalculation } from '@/lib/analytics-store'
+
+interface CurrencyPair {
+  from: Currency;
+  to: Currency;
+}
 
 interface CurrencyPairOption {
   value: string;
   label: string;
-  pair: CurrencyPairType;
+  pair: CurrencyPair;
 }
 
 interface CalculationResult {
-  positionSize: number
-  positionSizeLots: number
-  potentialLoss: number
-  requiredMargin: number
-  pipValue: number
-  marketData?: {
-    rate: number
-    spread: number
-    volatility: number
-    dailyRange: {
-      high: number
-      low: number
-    }
-  }
-  riskAnalysis?: {
-    riskRating: 'Low' | 'Medium' | 'High' | 'Very High'
-    riskScore: number
-    suggestions: string[]
-    maxRecommendedLeverage: number
-  }
-  leverage: number
-  displayUnit: 'units' | 'lots'
-  accountCurrency: string
+  positionSize: number;
+  positionSizeLots: number;
+  potentialLoss: number;
+  requiredMargin: number;
+  pipValue: number;
+  marketData: ExchangeRateResponse;
+  riskAnalysis: {
+    riskRating: 'Low' | 'Medium' | 'High' | 'Very High';
+    riskScore: number;
+    suggestions: string[];
+    maxRecommendedLeverage: number;
+  };
+  leverage: number;
+  displayUnit: 'units' | 'lots';
+  accountCurrency: Currency;
 }
 
 interface CalculatorFormProps {
-  onCalculationComplete: (results: {
-    positionSize: number
-    potentialLoss: number
-    requiredMargin: number
-    pipValue: number
-    displayUnit: 'units' | 'lots'
-    leverage: string
-    riskAnalysis: {
-      riskRating: 'Low' | 'Medium' | 'High' | 'Very High'
-      riskScore: number
-      suggestions: string[]
-      maxRecommendedLeverage: number
-    }
-    accountCurrency: string
-  }) => void
+  onCalculationComplete: (results: CalculationResult) => void;
 }
 
 interface FormState {
@@ -71,7 +52,42 @@ interface FormState {
   accountCurrency: Currency;
   riskDisplayMode: 'percentage' | 'money';
   takeProfit: string;
+  suggestions: string[];
 }
+
+interface TradingScenario {
+  accountBalance: number;
+  accountCurrency: Currency;
+  riskAmount: number;
+  positionSize: number;
+  stopLoss: number;
+  takeProfit: number;
+}
+
+interface TradingSuggestion {
+  message: string;
+  type: string;
+}
+
+const debounce = <F extends (...args: any[]) => void>(fn: F, delay: number) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const debouncedFn = (...args: Parameters<F>) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      fn(...args);
+    }, delay);
+  };
+  
+  debouncedFn.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  };
+  
+  return debouncedFn;
+};
 
 export default function CalculatorForm({ onCalculationComplete }: CalculatorFormProps) {
   const [formState, setFormState] = useState<FormState>({
@@ -83,13 +99,14 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
     leverage: '100',
     accountCurrency: 'USD',
     riskDisplayMode: 'percentage',
-    takeProfit: ''
+    takeProfit: '',
+    suggestions: []
   })
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [riskAmount, setRiskAmount] = useState(0)
-  const [suggestions, setSuggestions] = useState<TradingSuggestion[]>([])
+  const [alertMessage, setAlertMessage] = useState('')
 
   // Form submission handler
   const handleSubmit = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
@@ -113,42 +130,11 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
     setIsLoading(true);
 
     try {
-      // Get market data with tracking and fallback handling
       const [base, quote] = formState.selectedPair.split('/') as [Currency, Currency];
-      let marketData;
+      const marketData = await getMarketData(base, quote);
       
-      try {
-        marketData = await trackApiCall('market-data', async () => {
-          const data = await getMarketData(base, quote);
-          if (!data || !data.rate) throw new Error('Invalid market data');
-          return data;
-        });
-      } catch (marketError) {
-        console.warn('Using fallback rates due to market data error:', marketError);
-        // Use fallback rate based on common currency pairs
-        const fallbackRates: { [key: string]: number } = {
-          'EUR/USD': 1.1000,
-          'GBP/USD': 1.2500,
-          'USD/JPY': 110.00,
-          'USD/CHF': 0.9000,
-          'AUD/USD': 0.7500,
-          'USD/CAD': 1.2500,
-          'NZD/USD': 0.7000,
-        };
-        
-        const rate = fallbackRates[formState.selectedPair] || 1.0000;
-        marketData = {
-          rate,
-          spread: rate * 0.0002,
-          volatility: rate * 0.001,
-          dailyRange: {
-            high: rate * 1.002,
-            low: rate * 0.998,
-          }
-        };
-        
-        // Track fallback rate usage
-        incrementFallbackRates();
+      if (!marketData || !marketData.rate) {
+        throw new Error('Failed to get market data');
       }
 
       const balance = parseFloat(formState.accountBalance);
@@ -173,8 +159,8 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
       // Calculate position size with safety checks and cross rate handling
       if (stopLossAmount === 0) throw new Error('Invalid stop loss calculation');
       
-      let positionSize;
-      const [baseCurrency, quoteCurrency] = formState.selectedPair.split('/');
+      let positionSize: number;
+      const [baseCurrency, quoteCurrency] = formState.selectedPair.split('/') as [Currency, Currency];
       
       if (quoteCurrency === 'USD') {
         // Direct USD quote (e.g., EUR/USD)
@@ -185,8 +171,10 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
       } else {
         // Cross rate (e.g., EUR/JPY) - need to convert through USD
         try {
-          // Get USD/quote rate for conversion
           const usdQuoteRate = await getMarketData('USD' as Currency, quoteCurrency as Currency);
+          if (!usdQuoteRate || !usdQuoteRate.rate) {
+            throw new Error('Failed to get USD quote rate');
+          }
           positionSize = (riskAmount / stopLossAmount) / usdQuoteRate.rate;
         } catch (error) {
           console.warn('Failed to get cross rate, using approximation:', error);
@@ -198,12 +186,11 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
       const lotsSize = positionSize / standardLotSize;
 
       // Validate calculation results
-      if (!isFinite(positionSize) || positionSize <= 0) throw new Error('Invalid position size calculation');
-      
-      const marginRequired = (positionSize * marketData.rate) / leverage;
-      const pipValue = (pipSize * positionSize * marketData.rate);
+      if (!isFinite(positionSize) || positionSize <= 0) {
+        throw new Error('Invalid position size calculation');
+      }
 
-      // Analyze risk with correct parameters
+      // Get risk analysis
       const riskAnalysis = analyzeRisk(
         balance,
         risk,
@@ -212,29 +199,44 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
         marketData.volatility
       );
 
-      // Record calculation
-      recordCalculation(formState.selectedPair, 0);
+      // Get trading suggestions
+      const scenario: TradingScenario = {
+        accountBalance: balance,
+        accountCurrency: formState.accountCurrency,
+        riskAmount: riskAmount,
+        positionSize: positionSize,
+        stopLoss: stopLossPips,
+        takeProfit: parseFloat(formState.takeProfit) || 0,
+      };
+      const suggestions = getTradingSuggestions(scenario);
+      handleSuggestions(suggestions);
 
-      // Format and send results with validated risk analysis
-      onCalculationComplete({
-        positionSize: formState.displayUnit === 'lots' ? lotsSize : positionSize,
+      // Update state and notify parent
+      const results: CalculationResult = {
+        positionSize,
+        positionSizeLots: lotsSize,
         potentialLoss: riskAmount,
-        requiredMargin: marginRequired,
-        pipValue,
-        displayUnit: formState.displayUnit,
-        leverage: formState.leverage,
+        requiredMargin: positionSize * marketData.rate / leverage,
+        pipValue: (positionSize * pipSize) * marketData.rate,
+        marketData,
         riskAnalysis: {
           riskRating: riskAnalysis.riskRating,
-          riskScore: Math.round(riskAnalysis.riskScore),
+          riskScore: riskAnalysis.riskScore,
           suggestions: riskAnalysis.suggestions,
           maxRecommendedLeverage: riskAnalysis.maxRecommendedLeverage
         },
+        leverage,
+        displayUnit: formState.displayUnit,
         accountCurrency: formState.accountCurrency
-      });
+      };
 
-    } catch (err) {
-      console.error('Calculation error:', err);
-      setError(err instanceof Error ? err.message : 'Unable to calculate position size. Please check your inputs and try again.');
+      onCalculationComplete(results);
+      
+      // Record calculation
+      recordCalculation(formState.selectedPair, 0);
+    } catch (error) {
+      console.error('Calculation error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to calculate position size');
     } finally {
       setIsLoading(false);
     }
@@ -412,6 +414,15 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
     setFormState(prev => ({ ...prev, riskDisplayMode: newMode }))
   }
 
+  const handleSuggestions = (suggestions: TradingSuggestion[]) => {
+    const suggestionMessages = suggestions.map(s => s.message);
+    setFormState((prevState) => ({ ...prevState, suggestions: suggestionMessages }));
+  };
+
+  const handleAlert = (alert: { message: string; type: string }) => {
+    setAlertMessage(alert.message);
+  };
+
   useEffect(() => {
     try {
       const scenario: TradingScenario = {
@@ -423,25 +434,43 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
         takeProfit: parseFloat(formState.takeProfit) || 0,
       };
       
-      setSuggestions(getTradingSuggestions(scenario));
+      const suggestions = getTradingSuggestions(scenario);
+      const suggestionMessages = suggestions.map(s => s.message);
+      setFormState(prev => ({ ...prev, suggestions: suggestionMessages }));
     } catch (error) {
       console.error('Error getting trading suggestions:', error);
-      setSuggestions([{
-        message: 'Unable to generate trading suggestions. Please check your input values.',
-        type: 'warning'
-      }]);
+      setFormState(prev => ({ 
+        ...prev, 
+        suggestions: ['Unable to generate trading suggestions. Please check your input values.'] 
+      }));
     }
-  }, [formState, riskAmount]);
+  }, [
+    formState.accountBalance,
+    formState.accountCurrency,
+    formState.stopLoss,
+    formState.takeProfit,
+    riskAmount
+  ]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  const debouncedHandleSubmit = useCallback(
+    debounce(() => {
       if (formState.accountBalance && formState.riskPercentage && formState.stopLoss) {
         handleSubmit();
       }
-    }, 500); // 500ms delay
+    }, 500),
+    [formState.accountBalance, formState.riskPercentage, formState.stopLoss, formState.leverage, formState.selectedPair, handleSubmit]
+  );
 
-    return () => clearTimeout(timer);
-  }, [formState.accountBalance, formState.riskPercentage, formState.stopLoss, formState.leverage, formState.selectedPair]);
+  useEffect(() => {
+    debouncedHandleSubmit();
+    return () => debouncedHandleSubmit.cancel();
+  }, [debouncedHandleSubmit]);
+
+  const handleCalculation = (balance: number, riskAmount: number, stopLossPips: number, leverage: number, standardLotSize: number, pipSize: number) => {
+    const stopLossAmount = stopLossPips * pipSize;
+    const positionSize = (balance * riskAmount) / (stopLossAmount * leverage);
+    return positionSize;
+  };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
@@ -736,47 +765,20 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
 
         {/* Trading Suggestions */}
         <div className="mt-8 space-y-3">
-          {suggestions.map((suggestion, index) => (
+          {formState.suggestions.map((suggestion, index) => (
             <div
               key={index}
               className={`p-4 rounded-lg backdrop-blur-sm shadow-lg transition-all duration-300 hover:translate-y-[-2px] 
-                ${suggestion.type === 'warning'
-                  ? 'bg-red-900/20 border border-red-700/30 shadow-red-900/20'
-                  : suggestion.type === 'success'
-                  ? 'bg-green-900/20 border border-green-700/30 shadow-green-900/20'
-                  : 'bg-blue-900/20 border border-blue-700/30 shadow-blue-900/20'
-                }`}
+                bg-blue-900/20 border border-blue-700/30 shadow-blue-900/20`}
             >
               <div className="flex items-start gap-3">
-                <div className={`mt-0.5 hidden sm:block ${
-                  suggestion.type === 'warning'
-                    ? 'text-red-400'
-                    : suggestion.type === 'success'
-                    ? 'text-green-400'
-                    : 'text-blue-400'
-                }`}>
-                  {suggestion.type === 'warning' ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  ) : suggestion.type === 'success' ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
+                <div className="mt-0.5 hidden sm:block text-blue-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-                <p className={`text-xs sm:text-sm font-medium flex-1 ${
-                  suggestion.type === 'warning'
-                    ? 'text-red-200'
-                    : suggestion.type === 'success'
-                    ? 'text-green-200'
-                    : 'text-blue-200'
-                }`}>
-                  {suggestion.message}
+                <p className="text-xs sm:text-sm font-medium flex-1 text-blue-200">
+                  {suggestion}
                 </p>
               </div>
             </div>
