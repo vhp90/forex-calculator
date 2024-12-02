@@ -3,11 +3,12 @@
 # Set production environment
 export NODE_ENV=production
 
-# Skip husky installation in production
-export HUSKY_SKIP_INSTALL=1
+# Clean install
+rm -rf node_modules
+rm -f package-lock.json
 
-# Install dependencies including devDependencies for build time
-npm install --include=dev
+# Install all dependencies
+npm install
 
 # Build the application
 npm run build
