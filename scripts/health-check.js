@@ -26,10 +26,10 @@ if (!APP_URL) {
   process.exit(1);
 }
 
+// Only ping health check endpoints
 const endpoints = [
   '/api/health',
-  '/api/uptime',
-  '/api/exchange-rates'
+  '/api/uptime'
 ];
 
 function pingEndpoint(endpoint) {
@@ -50,8 +50,8 @@ function pingEndpoint(endpoint) {
 
   // Set a timeout to prevent hanging connections
   req.setTimeout(5000, () => {
-    console.error(`[${new Date().toISOString()}] Timeout pinging ${endpoint}`);
     req.destroy();
+    console.error(`[${new Date().toISOString()}] Timeout pinging ${endpoint}`);
   });
 
   req.end();
