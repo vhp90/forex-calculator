@@ -12,9 +12,9 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log(`Health check server running on port ${PORT}`);
+const HEALTH_CHECK_PORT = 3001;  // Use a fixed different port
+server.listen(HEALTH_CHECK_PORT, () => {
+  console.log(`Health check server running on port ${HEALTH_CHECK_PORT}`);
 });
 
 // Keep-warm functionality

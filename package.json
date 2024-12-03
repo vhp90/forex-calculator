@@ -5,11 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/health-check.js & next start",
+    "start": "node scripts/health-check.js & next start -p $PORT",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "prepare": "[ \"$NODE_ENV\" != \"production\" ] && husky install || true",
-    "postinstall": "npm run prepare",
     "sitemap": "next-sitemap",
     "pre-commit": "lint-staged"
   },
@@ -49,9 +47,9 @@
     "@types/react-dom": "^18.2.18",
     "@typescript-eslint/eslint-plugin": "^8.17.0",
     "@typescript-eslint/parser": "^8.17.0",
+    "cross-env": "^7.0.3",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.3",
-    "husky": "^8.0.3",
     "lint-staged": "^15.2.2",
     "sharp": "^0.33.5"
   },
