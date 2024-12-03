@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { withApiTracking } from '@/lib/api-tracker';
-import { getExchangeRate } from '@/lib/api/exchange-rates';
+import { getExchangeRate, isCurrency } from '@/lib/api/exchange-rates';
 import { unstable_cache } from 'next/cache';
-import { Currency } from '@/lib/api/types';
+import { Currency, SUPPORTED_CURRENCIES } from '@/lib/api/types';
 
 interface ExchangeRateStats {
   lastWeekFetches: Array<{ timestamp: number; source: 'cache' | 'api' }>;
@@ -50,12 +50,10 @@ const updateStats = unstable_cache(
     stats.lastWeekFetches.push({ timestamp: now, source });
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     stats.lastWeekFetches = stats.lastWeekFetches.filter(fetch => fetch.timestamp > weekAgo);
-
-    return stats;
   },
   ['exchange-rate-stats-update'],
   {
-    revalidate: false, // Don't cache updates
+    revalidate: 0,  // Don't cache updates
     tags: ['exchange-rate-stats']
   }
 );
@@ -63,25 +61,41 @@ const updateStats = unstable_cache(
 async function handler(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const from = searchParams.get('from') as Currency;
-    const to = searchParams.get('to') as Currency;
+    const fromCurrency = searchParams.get('from');
+    const toCurrency = searchParams.get('to');
 
-    if (!from || !to) {
+    if (!fromCurrency || !toCurrency) {
       return NextResponse.json(
         { error: 'Missing required parameters: from and to currencies' },
         { status: 400 }
       );
     }
 
-    const rateData = await getExchangeRate(from, to);
+    // Validate currencies
+    if (!isCurrency(fromCurrency) || !isCurrency(toCurrency)) {
+      return NextResponse.json(
+        { error: 'Invalid currency code. Supported currencies: ' + SUPPORTED_CURRENCIES.join(', ') },
+        { status: 400 }
+      );
+    }
+
+    const rateData = await getExchangeRate(fromCurrency, toCurrency);
+    
+    // Log the response for debugging
+    console.log('Exchange rate response:', {
+      from: fromCurrency,
+      to: toCurrency,
+      ...rateData
+    });
+    
     // Update stats based on the data source
     await updateStats(rateData.source === 'api' ? 'api' : 'cache');
     
     return NextResponse.json(rateData);
   } catch (error) {
-    console.error('Error fetching exchange rate:', error);
+    console.error('Error in exchange rate handler:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch exchange rate' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch exchange rate' },
       { status: 500 }
     );
   }
