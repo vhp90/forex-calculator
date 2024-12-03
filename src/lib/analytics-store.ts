@@ -76,13 +76,40 @@ async function setStatsToCache(newStats: AnalyticsStats): Promise<void> {
 // Helper functions
 function cleanup(stats: AnalyticsStats): void {
   const now = Date.now();
-  const hourAgo = now - 24 * 60 * 60 * 1000;
+  const dayAgo = now - 24 * 60 * 60 * 1000;  // 24 hours ago
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;  // 7 days ago
 
-  // Remove old records
-  stats.visits = stats.visits.filter(v => v.timestamp > hourAgo);
-  stats.calculations = stats.calculations.filter(c => c.timestamp > hourAgo);
-  stats.api = stats.api.filter(a => a.timestamp > hourAgo);
-  stats.errors = stats.errors.filter(e => e.timestamp > hourAgo);
+  // Keep only last 24 hours of detailed data
+  stats.visits = stats.visits.filter(v => v.timestamp > dayAgo);
+  stats.calculations = stats.calculations.filter(c => c.timestamp > dayAgo);
+  stats.api = stats.api.filter(a => a.timestamp > dayAgo);
+  stats.errors = stats.errors.filter(e => e.timestamp > dayAgo);
+
+  // Aggregate old data before removing
+  const oldApiCalls = stats.api.filter(a => a.timestamp <= dayAgo);
+  if (oldApiCalls.length > 0) {
+    const successCount = oldApiCalls.filter(a => a.success).length;
+    const totalDuration = oldApiCalls.reduce((acc, curr) => acc + curr.duration, 0);
+    
+    // Update endpoint stats
+    oldApiCalls.forEach(call => {
+      const endpoint = stats.apiEndpoints[call.endpoint] || { totalCalls: 0, errors: {}, avgResponseTime: 0 };
+      endpoint.totalCalls++;
+      if (!call.success) {
+        endpoint.errors['historical'] = (endpoint.errors['historical'] || 0) + 1;
+      }
+      endpoint.avgResponseTime = (endpoint.avgResponseTime * (endpoint.totalCalls - 1) + call.duration) / endpoint.totalCalls;
+      stats.apiEndpoints[call.endpoint] = endpoint;
+    });
+  }
+
+  // Remove data older than a week
+  Object.keys(stats.apiEndpoints).forEach(endpoint => {
+    const endpointStats = stats.apiEndpoints[endpoint];
+    if (endpointStats.totalCalls === 0) {
+      delete stats.apiEndpoints[endpoint];
+    }
+  });
 }
 
 async function updateStats(updateFn: (stats: AnalyticsStats) => AnalyticsStats | Promise<AnalyticsStats>): Promise<void> {

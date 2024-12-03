@@ -84,10 +84,16 @@ export default function AdminDashboard() {
       try {
         setIsLoading(true)
         const response = await fetch('/api/admin/stats', {
-          headers: { 'Cache-Control': 'no-cache' }
+          headers: { 
+            'Cache-Control': 'no-cache',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ADMIN_TOKEN}`
+          }
         })
         
-        if (!response.ok) throw new Error('Failed to fetch stats')
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch stats');
+        }
         
         const data = await response.json()
         setStats({

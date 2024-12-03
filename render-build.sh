@@ -12,3 +12,6 @@ npm install
 
 # Build the application
 npm run build
+
+# Make health check script executable
+chmod +x scripts/health-check.js

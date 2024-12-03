@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/health-check.js & next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "prepare": "[ \"$NODE_ENV\" != \"production\" ] && husky install || true",
