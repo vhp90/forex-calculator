@@ -18,8 +18,15 @@ const nextConfig = {
     appDir: true,
     serverActions: true,
     serverComponentsExternalPackages: ['@mui/material'],
-    optimizeCss: true,
     optimizePackageImports: ['@mui/material', '@mui/icons-material'],
+    optimizeCss: {
+      cssModules: true,
+      crittersOptions: {
+        reduceInlineStyles: false,
+        preload: 'media',
+        pruneSource: false
+      }
+    }
   },
   output: 'standalone',
   poweredByHeader: false,
