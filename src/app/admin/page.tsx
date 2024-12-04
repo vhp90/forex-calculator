@@ -49,14 +49,14 @@ interface Stats {
   }
 }
 
-const initialStats: Stats = {
+const defaultStats: Stats = {
   totalVisits: 0,
-  apiSuccessRate: '0%',
-  avgResponseTime: '0ms',
+  apiSuccessRate: '0',
+  avgResponseTime: '0',
   totalCalculations: 0,
-  avgCalculationTime: '0ms',
-  memoryUsage: '0 MB',
-  hourlyVisits: new Array(24).fill(0),
+  avgCalculationTime: '0',
+  memoryUsage: '0',
+  hourlyVisits: [],
   apiEndpoints: {},
   currencyPairs: {},
   fallbackRateUsage: {
@@ -67,13 +67,13 @@ const initialStats: Stats = {
     apiCalls: 0,
     cacheHits: 0,
     totalFetches: 0,
-    lastUpdate: 0,
+    lastUpdate: null,
     lastWeekFetches: []
   }
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats>(initialStats)
+  const [stats, setStats] = useState<Stats>(defaultStats)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -97,7 +97,7 @@ export default function AdminDashboard() {
         
         const data = await response.json()
         setStats({
-          ...initialStats,
+          ...defaultStats,
           ...data,
           apiEndpoints: data.apiEndpoints || {},
           currencyPairs: data.currencyPairs || {},
@@ -156,24 +156,19 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           title="Total Visits"
-          value={stats.totalVisits.toString()}
-          trend="+12% from last week"
+          value={stats?.totalVisits || 0}
         />
         <StatCard
           title="API Success Rate"
-          value={stats.apiSuccessRate}
-          trend={Number(stats.apiSuccessRate.replace('%', '')) >= 99 ? 'Healthy' : 'Needs Attention'}
-          trendColor={Number(stats.apiSuccessRate.replace('%', '')) >= 99 ? 'text-green-500' : 'text-yellow-500'}
+          value={`${stats?.apiSuccessRate || 0}%`}
         />
         <StatCard
           title="Total Calculations"
-          value={stats.totalCalculations.toString()}
-          trend="Last 24 hours"
+          value={stats?.totalCalculations || 0}
         />
         <StatCard
           title="Memory Usage"
-          value={stats.memoryUsage}
-          trend="Server Resources"
+          value={stats?.memoryUsage || '0'}
         />
       </div>
 

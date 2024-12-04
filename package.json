@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/health-check.js & next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "sitemap": "next-sitemap",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "health": "node scripts/health-check.js"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
