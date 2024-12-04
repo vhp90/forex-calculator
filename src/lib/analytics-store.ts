@@ -37,11 +37,18 @@ interface AnalyticsStats {
   totalApiCalls: number;
   totalErrors: number;
   totalFallbackRates: number;
-  apiEndpoints: { [endpoint: string]: { totalCalls: number, errors: { [error: string]: number }, avgResponseTime: number } }
+  apiEndpoints: { 
+    [endpoint: string]: { 
+      totalCalls: number, 
+      errors: { [error: string]: number }, 
+      avgResponseTime: number,
+      lastUpdate: number 
+    } 
+  }
 }
 
-// Initialize stats
-let stats: AnalyticsStats = {
+// Initialize stats with default values
+const initialStats: AnalyticsStats = {
   visits: [],
   calculations: [],
   api: [],
@@ -53,12 +60,21 @@ let stats: AnalyticsStats = {
   apiEndpoints: {}
 };
 
-// Cache functions
+// Initialize stats
+let stats: AnalyticsStats = initialStats;
+
+// Cache functions with longer revalidation and tags
 async function getStatsFromCache(): Promise<AnalyticsStats> {
   const getCachedStats = unstable_cache(
-    async () => stats,
+    async () => {
+      // Return existing stats or initialize new ones
+      return stats || initialStats;
+    },
     ['analytics-stats'],
-    { revalidate: 3600 }
+    { 
+      revalidate: 3600, // Revalidate every hour
+      tags: ['analytics']  // Add tag for better cache control
+    }
   );
   return getCachedStats();
 }
@@ -68,7 +84,10 @@ async function setStatsToCache(newStats: AnalyticsStats): Promise<void> {
   const updateStats = unstable_cache(
     async () => newStats,
     ['analytics-stats'],
-    { revalidate: 3600 }
+    { 
+      revalidate: 3600, // Match the get cache duration
+      tags: ['analytics'] 
+    }
   );
   await updateStats();
 }
@@ -78,6 +97,7 @@ function cleanup(stats: AnalyticsStats): void {
   const now = Date.now();
   const dayAgo = now - 24 * 60 * 60 * 1000;  // 24 hours ago
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;  // 7 days ago
+  const monthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days ago
 
   // Keep only last 24 hours of detailed data
   stats.visits = stats.visits.filter(v => v.timestamp > dayAgo);
@@ -86,27 +106,25 @@ function cleanup(stats: AnalyticsStats): void {
   stats.errors = stats.errors.filter(e => e.timestamp > dayAgo);
 
   // Aggregate old data before removing
-  const oldApiCalls = stats.api.filter(a => a.timestamp <= dayAgo);
+  const oldApiCalls = stats.api.filter(a => a.timestamp <= dayAgo && a.timestamp > weekAgo);
   if (oldApiCalls.length > 0) {
-    const successCount = oldApiCalls.filter(a => a.success).length;
-    const totalDuration = oldApiCalls.reduce((acc, curr) => acc + curr.duration, 0);
-    
     // Update endpoint stats
     oldApiCalls.forEach(call => {
-      const endpoint = stats.apiEndpoints[call.endpoint] || { totalCalls: 0, errors: {}, avgResponseTime: 0 };
+      const endpoint = stats.apiEndpoints[call.endpoint] || { totalCalls: 0, errors: {}, avgResponseTime: 0, lastUpdate: 0 };
       endpoint.totalCalls++;
       if (!call.success) {
         endpoint.errors['historical'] = (endpoint.errors['historical'] || 0) + 1;
       }
       endpoint.avgResponseTime = (endpoint.avgResponseTime * (endpoint.totalCalls - 1) + call.duration) / endpoint.totalCalls;
+      endpoint.lastUpdate = now;
       stats.apiEndpoints[call.endpoint] = endpoint;
     });
   }
 
-  // Remove data older than a week
+  // Remove data older than a month
   Object.keys(stats.apiEndpoints).forEach(endpoint => {
     const endpointStats = stats.apiEndpoints[endpoint];
-    if (endpointStats.totalCalls === 0) {
+    if (endpointStats.totalCalls === 0 || endpointStats.lastUpdate < monthAgo) {
       delete stats.apiEndpoints[endpoint];
     }
   });
@@ -146,17 +164,27 @@ export async function trackApiCall(endpoint: string, success: boolean, duration:
   });
 }
 
-export async function recordCalculation(currencyPair: string, duration: number, usedFallbackRate: boolean = false): Promise<void> {
+export async function recordCalculation(data: { 
+  input: { 
+    accountBalance: number;
+    riskPercentage: number;
+    stopLoss: number;
+    leverage: number;
+    pair: string;
+    accountCurrency: Currency;
+  };
+  output: any;
+}): Promise<void> {
   await updateStats(stats => {
     const calc: CalcMetric = {
       timestamp: Date.now(),
-      currencyPair,
-      duration,
-      usedFallbackRate
+      currencyPair: data.input.pair,
+      duration: 0,
+      usedFallbackRate: data.output.usedFallbackRate || false
     };
     stats.calculations.push(calc);
     stats.totalCalculations++;
-    if (usedFallbackRate) {
+    if (calc.usedFallbackRate) {
       stats.totalFallbackRates++;
     }
     cleanup(stats);
@@ -182,8 +210,9 @@ export async function incrementErrorCount(endpoint: string, error: string): Prom
   await updateStats(stats => {
     const endpointStats = stats.apiEndpoints[endpoint] || {
       totalCalls: 0,
-      errors: {},
-      avgResponseTime: 0
+      errors: {} ,
+      avgResponseTime: 0,
+      lastUpdate: 0
     };
     
     endpointStats.errors[error] = (endpointStats.errors[error] || 0) + 1;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CachedExchangeRates, Currency, FALLBACK_RATES } from '@/lib/api/types';
+import { getExchangeRates } from '@/lib/client/performance-cache';
 
 interface UseExchangeRatesResult {
   rates: Record<Currency, number>;
@@ -19,17 +20,10 @@ export function useExchangeRates(): UseExchangeRatesResult {
   async function fetchRates() {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/exchange-rates', {
-        // Use cache-first strategy, revalidating in the background
-        cache: 'force-cache',
-        next: { revalidate: 43200 } // 12 hours
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch exchange rates');
-      }
-      const data: CachedExchangeRates = await response.json();
+      const data = await getExchangeRates();
       setRates(data.rates as Record<Currency, number>);
-      setNextUpdate(new Date(data.expiresAt));
+      // Set next update to 12 hours from now
+      setNextUpdate(new Date(Date.now() + 12 * 60 * 60 * 1000));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Unknown error'));

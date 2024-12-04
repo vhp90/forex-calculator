@@ -25,7 +25,7 @@ const getExchangeRateStats = unstable_cache(
   }
 );
 
-export async function GET(request: Request) {
+async function handler(request: Request) {
   try {
     const isAdmin = await validateAdminRequest();
     if (!isAdmin) {
@@ -33,53 +33,46 @@ export async function GET(request: Request) {
     }
 
     const stats = await getStats();
-    const exchangeRateStats = await getExchangeRateStats();
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    // Calculate API success rate
+    const recentApiCalls = stats.api.filter(call => call.timestamp > dayAgo);
+    const successRate = recentApiCalls.length > 0
+      ? ((recentApiCalls.filter(call => call.success).length / recentApiCalls.length) * 100).toFixed(1)
+      : '100';
+
+    // Calculate fallback rate usage
+    const recentCalcs = stats.calculations.filter(calc => calc.timestamp > dayAgo);
+    const fallbackCount = recentCalcs.filter(calc => calc.usedFallbackRate).length;
+    const fallbackPercentage = recentCalcs.length > 0
+      ? ((fallbackCount / recentCalcs.length) * 100).toFixed(1)
+      : '0';
 
     return NextResponse.json({
-      visits: {
-        total: stats.visits.length,
-        unique: new Set(stats.visits.map((v: VisitMetric) => v.path)).size,
-        byPath: stats.visits.reduce((acc: Record<string, number>, curr: VisitMetric) => {
-          acc[curr.path] = (acc[curr.path] || 0) + 1;
-          return acc;
-        }, {})
+      totalVisits: stats.visits.length,
+      apiSuccessRate: `${successRate}%`,
+      totalCalculations: stats.calculations.filter(calc => calc.timestamp > dayAgo).length,
+      apiEndpoints: stats.apiEndpoints,
+      currencyPairs: stats.calculations.reduce((acc: Record<string, number>, curr) => {
+        acc[curr.currencyPair] = (acc[curr.currencyPair] || 0) + 1;
+        return acc;
+      }, {}),
+      fallbackRateUsage: {
+        count: fallbackCount,
+        percentage: fallbackPercentage
       },
-      calculations: {
-        total: stats.totalCalculations,
-        byPair: stats.calculations.reduce((acc: Record<string, number>, curr: CalcMetric) => {
-          acc[curr.currencyPair] = (acc[curr.currencyPair] || 0) + 1;
-          return acc;
-        }, {}),
-        avgDuration: stats.calculations.length > 0 
-          ? stats.calculations.reduce((acc: number, curr: CalcMetric) => acc + curr.duration, 0) / stats.calculations.length 
-          : 0,
-        fallbackRates: stats.totalFallbackRates
-      },
-      api: {
-        total: stats.totalApiCalls,
-        byEndpoint: stats.api.reduce((acc: Record<string, number>, curr: ApiMetric) => {
-          acc[curr.endpoint] = (acc[curr.endpoint] || 0) + 1;
-          return acc;
-        }, {}),
-        avgDuration: stats.api.length > 0 
-          ? stats.api.reduce((acc: number, curr: ApiMetric) => acc + curr.duration, 0) / stats.api.length 
-          : 0,
-        success: stats.api.filter((a: ApiMetric) => a.success).length,
-        errors: stats.api.filter((a: ApiMetric) => !a.success).length
-      },
-      errors: {
-        total: stats.totalErrors,
-        byEndpoint: stats.errors.reduce((acc: Record<string, number>, curr: ErrorMetric) => {
-          acc[curr.endpoint] = (acc[curr.endpoint] || 0) + 1;
-          return acc;
-        }, {})
-      },
-      exchangeRates: {
-        totalFetches: exchangeRateStats.totalFetches,
-        cacheHits: exchangeRateStats.cacheHits,
-        apiCalls: exchangeRateStats.apiCalls,
-        lastUpdate: exchangeRateStats.lastUpdate,
-        lastWeekActivity: exchangeRateStats.lastWeekFetches
+      exchangeRateStats: {
+        apiCalls: stats.api.filter(call => call.endpoint.includes('exchange-rates')).length,
+        cacheHits: stats.api.filter(call => call.endpoint.includes('exchange-rates') && call.success).length,
+        totalFetches: stats.totalApiCalls,
+        lastUpdate: stats.api.length > 0 ? Math.max(...stats.api.map(a => a.timestamp)) : null,
+        lastWeekActivity: Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(now - i * 24 * 60 * 60 * 1000);
+          const dayStart = new Date(date.setHours(0, 0, 0, 0)).getTime();
+          const dayEnd = new Date(date.setHours(23, 59, 59, 999)).getTime();
+          return stats.api.filter(a => a.timestamp >= dayStart && a.timestamp <= dayEnd).length;
+        }).reverse()
       }
     });
   } catch (error) {
@@ -90,3 +83,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = withApiTracking('/api/admin/stats', handler);

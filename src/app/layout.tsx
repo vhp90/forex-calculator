@@ -8,7 +8,8 @@ import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
-const DOMAIN = 'https://forex-calculator.onrender.com'
+const DOMAIN = 'https://thedailybroker.com'
+const ALT_DOMAIN = 'https://forex-calculator.onrender.com'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -20,67 +21,50 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(DOMAIN),
-  title: 'Forex Position Size Calculator | Risk Management Tool for Traders',
-  description: 'Free professional Forex position size calculator. Calculate optimal lot sizes, manage risk percentage, and determine stop loss levels for successful forex trading. Built for both beginner and experienced traders.',
+  title: 'Forex Position Size Calculator | Professional Risk Management Tool',
+  description: 'Free professional Forex position size calculator with real-time exchange rates. Calculate optimal lot sizes, manage risk percentage, and determine stop loss levels for successful forex trading. Perfect for both beginner and experienced traders.',
   keywords: [
-    'forex',
-    'position size',
-    'calculator',
-    'trading',
-    'risk management',
-    'stop loss',
-    'forex trading',
-    'position sizing',
-    'trading tool',
-    'forex calculator'
-  ].join(','),
-  authors: { name: 'VHP', url: 'mailto:vhp327@gmail.com' },
-  creator: 'VHP',
-  publisher: 'VHP',
-  formatDetection: {
-    email: true,
-    address: false,
-    telephone: false,
+    'forex calculator',
+    'position size calculator',
+    'forex position calculator',
+    'forex risk management',
+    'trading calculator',
+    'stop loss calculator',
+    'lot size calculator',
+    'forex trading tool',
+    'risk management calculator',
+    'forex risk calculator'
+  ],
+  authors: [{ name: 'The Daily Broker' }],
+  alternates: {
+    canonical: DOMAIN,
+    languages: {
+      'en-US': DOMAIN,
+    },
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: DOMAIN,
-    title: 'Forex Position Size Calculator | Risk Management Tool for Traders',
-    description: 'Free professional Forex position size calculator. Calculate optimal lot sizes, manage risk percentage, and determine stop loss levels for successful forex trading.',
     siteName: 'Forex Position Size Calculator',
-    images: [{
-      url: `${DOMAIN}/og-image.png`,
-      width: 1200,
-      height: 630,
-      alt: 'Forex Position Size Calculator Preview'
-    }],
+    title: 'Professional Forex Position Size Calculator | Risk Management Tool',
+    description: 'Calculate optimal forex position sizes with our free professional calculator. Features real-time exchange rates and advanced risk management tools.',
+    images: [
+      {
+        url: `${DOMAIN}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: 'Forex Position Size Calculator',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Forex Position Size Calculator | Risk Management Tool for Traders',
-    description: 'Free professional Forex position size calculator. Calculate optimal lot sizes, manage risk percentage, and determine stop loss levels for successful forex trading.',
+    title: 'Forex Position Size Calculator | Risk Management Tool',
+    description: 'Professional forex position size calculator with real-time exchange rates and risk management features.',
     images: [`${DOMAIN}/og-image.png`],
-    creator: '@vhp',
-  },
-  alternates: {
-    canonical: DOMAIN
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-    nocache: true,
   },
   category: 'Finance',
-  classification: 'Financial Tools',
-  manifest: '/manifest.json',
 }
 
 export default function RootLayout({
@@ -88,6 +72,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const headersList = headers()
+  const host = headersList.get('host') || ''
+  const isAltDomain = host.includes('forex-calculator.onrender.com')
+  const currentDomain = isAltDomain ? ALT_DOMAIN : DOMAIN
+
   return (
     <html lang="en">
       <head>
@@ -95,6 +84,18 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+        <Script
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
+        />
+        <Script id="google-analytics">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${process.env.NEXT_PUBLIC_GA_ID}');
+          `}
+        </Script>
         <Script
           id="structured-data"
           type="application/ld+json"
@@ -115,7 +116,7 @@ export default function RootLayout({
                 },
                 author: {
                   '@type': 'Person',
-                  name: 'VHP',
+                  name: 'The Daily Broker',
                   email: 'vhp327@gmail.com'
                 }
               },

@@ -4,6 +4,7 @@ const nextConfig = {
   swcMinify: true,
   compiler: {
     styledComponents: true,
+    removeConsole: process.env.NODE_ENV === 'production',
   },
   env: {
     EXCHANGE_RATE_API_KEY: process.env.EXCHANGE_RATE_API_KEY,
@@ -17,12 +18,37 @@ const nextConfig = {
     appDir: true,
     serverActions: true,
     serverComponentsExternalPackages: ['@mui/material'],
+    optimizeCss: true,
+    optimizePackageImports: ['@mui/material', '@mui/icons-material'],
   },
   output: 'standalone',
   poweredByHeader: false,
+  compress: true,
   images: {
-    unoptimized: true
+    domains: ['thedailybroker.com', 'forex-calculator.onrender.com'],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
   },
+  headers: async () => [
+    {
+      source: '/:path*',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=3600, must-revalidate'
+        }
+      ]
+    },
+    {
+      source: '/api/:path*',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'no-store'
+        }
+      ]
+    }
+  ]
 }
 
 module.exports = nextConfig

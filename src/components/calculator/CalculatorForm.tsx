@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, FormEvent } from 'react'
-import { getMarketData } from '@/lib/market-data'
-import { analyzeRisk } from '@/lib/risk-analysis'
-import { getTradingSuggestions } from '@/lib/trading-suggestions'
+import { getClientExchangeRates } from '@/lib/client/exchange-rates-cache'
+import { calculatePosition } from '@/lib/client/position-calculator'
+import { recordCalculation } from '@/lib/analytics-store'
 import { Currency, ExchangeRateResponse } from '@/lib/api/types'
 import { HiMinus, HiPlus } from 'react-icons/hi'
 import { CURRENCY_PAIRS } from '@/lib/api/types'
-import { recordCalculation } from '@/lib/analytics-store'
+import { getTradingSuggestions } from '@/lib/trading-suggestions'
 
 interface CurrencyPair {
   from: Currency;
@@ -26,15 +26,18 @@ interface CalculationResult {
   potentialLoss: number;
   requiredMargin: number;
   pipValue: number;
-  marketData: ExchangeRateResponse;
+  marketData: {
+    rate: number;
+    source: 'api' | 'fallback' | 'cache';
+  };
   riskAnalysis: {
     riskRating: 'Low' | 'Medium' | 'High' | 'Very High';
     riskScore: number;
     suggestions: string[];
     maxRecommendedLeverage: number;
   };
-  leverage: number;
   displayUnit: 'units' | 'lots';
+  leverage: number;
   accountCurrency: Currency;
 }
 
@@ -66,7 +69,7 @@ interface TradingScenario {
 
 interface TradingSuggestion {
   message: string;
-  type: string;
+  type: 'warning' | 'info' | 'success';
 }
 
 interface RiskAnalysisProps {
@@ -117,105 +120,75 @@ export default function CalculatorForm({ onCalculationComplete }: CalculatorForm
   const [riskAmount, setRiskAmount] = useState(0)
   const [alertMessage, setAlertMessage] = useState('')
 
-  const calculatePositionSize = (
-    accountBalance: number,
-    riskAmount: number,
-    stopLoss: number,
-    rate: number,
-    leverage: number
-  ): { units: number; lots: number } => {
-    // Calculate position size in units
-    const pipSize = formState.selectedPair.includes('JPY') ? 0.01 : 0.0001;
-    const stopLossAmount = stopLoss * pipSize;
-    
-    let positionSizeUnits: number;
-    
-    if (stopLossAmount === 0) {
-      return { units: 0, lots: 0 };
+  const handleSubmit = async (e: FormEvent | null = null) => {
+    if (e) {
+      e.preventDefault();
     }
-    
-    positionSizeUnits = (riskAmount / stopLossAmount);
-    const positionSizeLots = positionSizeUnits / 100000; // Standard lot size
-
-    return {
-      units: positionSizeUnits,
-      lots: positionSizeLots
-    };
-  };
-
-  // Form submission handler
-  const handleSubmit = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
-    if (event) {
-      event.preventDefault()
-    }
-    
-    // Enhanced validation with specific error messages
-    const validationErrors = [];
-    if (!formState.accountBalance) validationErrors.push('Account Balance');
-    if (!formState.riskPercentage) validationErrors.push('Risk Percentage');
-    if (!formState.stopLoss) validationErrors.push('Stop Loss');
-    if (!formState.selectedPair) validationErrors.push('Currency Pair');
-    
-    if (validationErrors.length > 0) {
-      setError(`Please fill in the following required fields: ${validationErrors.join(', ')}`);
-      return;
-    }
-
-    setError('');
     setIsLoading(true);
+    setError('');
 
     try {
+      // Get exchange rates from client cache
+      const exchangeRates = await getClientExchangeRates();
+      
+      // Parse form values
       const accountBalance = parseFloat(formState.accountBalance);
       const riskPercentage = parseFloat(formState.riskPercentage);
       const stopLoss = parseFloat(formState.stopLoss);
       const leverage = parseFloat(formState.leverage);
-      const takeProfit = parseFloat(formState.takeProfit);
-
-      if (isNaN(accountBalance) || isNaN(riskPercentage) || isNaN(stopLoss)) {
-        throw new Error('Please fill in all required fields with valid numbers');
-      }
-
       const [baseCurrency, quoteCurrency] = formState.selectedPair.split('/') as [Currency, Currency];
-      const marketData = await getMarketData(baseCurrency, quoteCurrency);
-      
-      const riskAmount = (accountBalance * riskPercentage) / 100;
-      const position = calculatePositionSize(
-        accountBalance,
-        riskAmount,
-        stopLoss,
-        marketData.rate,
-        leverage
-      );
 
-      const results: CalculationResult = {
-        positionSize: formState.displayUnit === 'lots' ? position.lots : position.units,
-        positionSizeLots: position.lots,
-        potentialLoss: riskAmount,
-        requiredMargin: (position.units * marketData.rate) / leverage,
-        pipValue: (position.units * marketData.rate * (formState.selectedPair.includes('JPY') ? 0.01 : 0.0001)),
-        marketData,
-        riskAnalysis: analyzeRisk({
+      // Perform client-side calculations
+      const result = calculatePosition({
+        accountBalance,
+        riskPercentage,
+        stopLoss,
+        leverage,
+        accountCurrency: formState.accountCurrency,
+        baseCurrency,
+        quoteCurrency,
+        exchangeRates: exchangeRates.rates
+      });
+
+      // Record the calculation for analytics
+      await recordCalculation({
+        input: {
           accountBalance,
           riskPercentage,
-          stopLossPips: stopLoss,
+          stopLoss,
           leverage,
-        }),
-        leverage,
+          pair: formState.selectedPair,
+          accountCurrency: formState.accountCurrency
+        },
+        output: result
+      });
+
+      // Create the full calculation result
+      const fullResult: CalculationResult = {
+        ...result,
         displayUnit: formState.displayUnit,
-        accountCurrency: formState.accountCurrency
+        leverage,
+        accountCurrency: formState.accountCurrency,
+        marketData: {
+          rate: exchangeRates.rates[`${baseCurrency}${quoteCurrency}`] || 0,
+          source: 'api'
+        },
+        riskAnalysis: {
+          riskRating: result.riskRating,
+          riskScore: result.riskScore,
+          suggestions: result.suggestions,
+          maxRecommendedLeverage: Math.min(100, Math.floor(1000 / result.riskScore))
+        }
       };
 
-      onCalculationComplete(results);
-      
-      // Record calculation
-      recordCalculation(formState.selectedPair, 0);
-    } catch (error) {
-      console.error('Calculation error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to calculate position size');
+      onCalculationComplete(fullResult);
+    } catch (err) {
+      setError('Failed to calculate position size. Please try again.');
+      console.error('Calculation error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [formState, onCalculationComplete]);
+  };
 
   const handleUnitToggle = useCallback((unit: 'units' | 'lots') => {
     if (unit === formState.displayUnit) return
