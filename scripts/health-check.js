@@ -28,8 +28,7 @@ if (!APP_URL) {
 
 const endpoints = [
   '/api/health',
-  '/api/uptime',
-  '/api/exchange-rates'
+  '/api/uptime'
 ];
 
 function pingEndpoint(endpoint) {
