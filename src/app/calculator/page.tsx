@@ -4,6 +4,8 @@ import { useState } from 'react'
 import CalculatorForm from '@/components/calculator/CalculatorForm'
 import ResultsDisplay from '@/components/calculator/ResultsDisplay'
 import RiskAnalysis from '@/components/calculator/RiskAnalysis'
+import { calculatorStructuredData, howToStructuredData } from './structured-data'
+import Script from 'next/script'
 
 interface CalculationResults {
   positionSize: number;
@@ -44,6 +46,16 @@ export default function CalculatorPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 py-6 sm:py-12 px-4 sm:px-6 lg:px-8">
+      <Script
+        id="calculator-structured-data"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(calculatorStructuredData) }}
+      />
+      <Script
+        id="howto-structured-data"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToStructuredData) }}
+      />
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-8 sm:mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold text-blue-400 mb-2 sm:mb-4">

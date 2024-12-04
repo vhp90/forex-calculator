@@ -1,10 +1,44 @@
-# *
+# Google crawlers
+User-agent: Googlebot
+Allow: /
+Allow: /calculator
+Allow: /*.js$
+Allow: /*.css$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /manifest.json
+Disallow: /api/
+Disallow: /admin/
+
+# Google Images
+User-agent: Googlebot-Image
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /og-image.png
+
+# Google Mobile
+User-agent: Googlebot-Mobile
+Allow: /
+Allow: /calculator
+
+# All other crawlers
 User-agent: *
 Allow: /
-Disallow: /api
+Allow: /calculator
+Disallow: /api/
+Disallow: /admin/
 
-# Host
-Host: https://forex-calculator.onrender.com
+# Primary domain
+Host: https://thedailybroker.com
+Host-alt: https://forex-calculator.onrender.com
 
 # Sitemaps
+Sitemap: https://thedailybroker.com/sitemap.xml
 Sitemap: https://forex-calculator.onrender.com/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
