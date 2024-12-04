@@ -122,9 +122,26 @@ export function calculateCrossRate(
   to: Currency
 ): number {
   if (from === to) return 1;
-  if (from === 'USD') return rates[to];
-  if (to === 'USD') return 1 / rates[from];
-  return rates[to] / rates[from];
+  
+  // Direct rate check
+  const directPair = `${from}${to}`;
+  if (rates[directPair]) return rates[directPair];
+  
+  // Inverse rate check
+  const inversePair = `${to}${from}`;
+  if (rates[inversePair]) return 1 / rates[inversePair];
+  
+  // Calculate via USD as base
+  if (rates[`USD${from}`] && rates[`USD${to}`]) {
+    return rates[`USD${to}`] / rates[`USD${from}`];
+  }
+  
+  // Fallback to USD path
+  if (from === 'USD') return rates[to] || 1;
+  if (to === 'USD') return 1 / (rates[from] || 1);
+  
+  // Final fallback
+  return (rates[to] || 1) / (rates[from] || 1);
 }
 
 export function calculatePipValue(
