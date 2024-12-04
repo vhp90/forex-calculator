@@ -7,6 +7,32 @@ const CACHE_TAG = 'exchange-rates';
 const CACHE_DURATION = 12 * 60 * 60; // 12 hours in seconds
 const BASE_URL = 'https://v6.exchangerate-api.com/v6';
 
+async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.status === 429) {
+        // Rate limit exceeded, wait with exponential backoff
+        const waitTime = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      if (attempt === maxRetries - 1) throw error;
+      // Wait before retrying on network errors
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 // Fetch and cache USD rates for 12 hours
 const getUSDRates = unstable_cache(
   async (): Promise<ExchangeRateAPIResponse> => {
@@ -17,25 +43,30 @@ const getUSDRates = unstable_cache(
     const url = `${BASE_URL}/${EXCHANGE_RATE_API_KEY}/latest/USD`;
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
+      const response = await fetchWithRetry(url);
+      
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
         throw new Error(`Exchange rate API error: ${response.status}`);
       }
+      
       return await response.json();
     } catch (error) {
       logError('exchange-rates-api', error instanceof Error ? error.message : 'Unknown error');
-      throw error;
+      // Return fallback rates if API fails
+      return {
+        result: 'error',
+        base_code: 'USD',
+        rates: FALLBACK_RATES
+      };
     }
   },
   ['usd-rates'],
   {
-    revalidate: CACHE_DURATION,
-    tags: [CACHE_TAG]
+    tags: [CACHE_TAG],
+    revalidate: CACHE_DURATION
   }
 );
 
